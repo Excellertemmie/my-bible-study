@@ -35,7 +35,7 @@ section[hidden]{display:none}
 <header><h1>My Bible Study</h1></header>
 <main>
 <section id="read">
-  <div class="row"><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
+  <div class="row"><select id="ver" aria-label="Bible version"><option value="kjv">KJV</option><option value="bbe">BBE</option></select><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
   <div id="text"></div>
   <p class="hint">Tap verses to select them, then write about them.</p>
   <button class="btn" id="toJournal">Journal this passage</button>
@@ -69,20 +69,24 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   if(b.dataset.t==='journal')render();
 });
 
-fetch('bible.json').then(r=>r.json()).then(d=>{bible=d;$('tr').textContent='Translation: '+d.translation;
-  $('book').innerHTML='';Object.keys(d.books).forEach(k=>$('book').add(new Option(k,k)));fillChaps();}).catch(()=>$('text').textContent='Could not load bible.json.');
-function fillChaps(){$('chap').innerHTML='';Object.keys(bible.books[$('book').value]).forEach(c=>$('chap').add(new Option(c,c)));show();}
+function load(keep){const v=$('ver').value;try{localStorage.setItem('ver',v)}catch{}
+  fetch('bible-'+v+'.json').then(r=>r.json()).then(d=>{bible=d;$('tr').textContent='Translation: '+d.translation+' (public domain)';
+  const bk=keep&&$('book').value,ch=keep&&$('chap').value;
+  $('book').innerHTML='';Object.keys(d.books).forEach(k=>$('book').add(new Option(k,k)));
+  if(bk&&d.books[bk])$('book').value=bk;fillChaps(ch);}).catch(()=>$('text').textContent='Could not load this Bible version. Connect to the internet once to download it.');}
+function fillChaps(ch){$('chap').innerHTML='';Object.keys(bible.books[$('book').value]).forEach(c=>$('chap').add(new Option(c,c)));
+  if(ch&&bible.books[$('book').value][ch])$('chap').value=ch;show();}
 function show(){picked.clear();const t=$('text');t.innerHTML='';
   const vs=bible.books[$('book').value][$('chap').value];
   Object.entries(vs).forEach(([n,tx])=>{const p=document.createElement('p');p.className='v';p.dataset.n=n;
     const s=document.createElement('sup');s.textContent=n;p.append(s,tx);
     p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel')};t.append(p)});}
-$('book').onchange=fillChaps;$('chap').onchange=show;
+$('book').onchange=()=>fillChaps();$('ver').onchange=()=>load(true);$('chap').onchange=show;
 function refText(){const b=$('book').value,c=$('chap').value;
   const ns=[...picked].map(Number).sort((a,b)=>a-b);if(!ns.length)return b+' '+c;
   const r=[];let s=ns[0],p=s;for(const n of ns.slice(1).concat([null])){if(n===p+1){p=n;continue}r.push(s===p?s:s+'–'+p);s=p=n}
   return b+' '+c+':'+r.join(', ');}
-$('toJournal').onclick=()=>{$('jRef').value=refText();document.querySelector('[data-t=journal]').click();$('jBody').focus();};
+$('toJournal').onclick=()=>{$('jRef').value=refText()+' ('+$('ver').value.toUpperCase()+')';document.querySelector('[data-t=journal]').click();$('jBody').focus();};
 
 function render(){const L=store.get().sort((a,b)=>b.date.localeCompare(a.date));$('list').innerHTML='';
   if(!L.length){$('list').innerHTML='<p class="hint">No entries yet. Read a passage and tap "Journal this passage".</p>';return}
@@ -111,5 +115,7 @@ $('imp').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text(
   store.set(cur.concat(add));$('status').textContent='Restored '+add.length+' entries.';}
   catch{$('status').textContent='That file is not a valid backup.'}};
 
+try{const sv=localStorage.getItem('ver');if(sv)$('ver').value=sv}catch{}
+load(false);
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script></body></html>

@@ -1,6 +1,6 @@
 // Change VERSION whenever you update any file, so phones fetch the new copy.
-const VERSION = 'v1';
-const FILES = ['./', './index.html', './bible.json', './manifest.webmanifest', './icon.svg'];
+const VERSION = 'v2';
+const FILES = ['./', './index.html', './bible-kjv.json', './bible-bbe.json', './manifest.webmanifest', './icon.svg'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)));
   self.skipWaiting();
