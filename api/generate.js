@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: SYSTEM }] },
           contents: [{ role: 'user', parts: [{ text: `Topic: ${topic.trim()}\nDepth: ${d}` }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2000, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+          generationConfig: { temperature: 0.7, maxOutputTokens: 2000, responseMimeType: 'application/json' }
         })
       }
     );
