@@ -18,24 +18,35 @@ module.exports = async (req, res) => {
   const d = ['quick', 'standard', 'deep'].includes(depth) ? depth : 'standard';
   try {
     const r = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',
       {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: SYSTEM }] },
           contents: [{ role: 'user', parts: [{ text: `Topic: ${topic.trim()}\nDepth: ${d}` }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2500, responseMimeType: 'application/json' }
+          generationConfig: { temperature: 0.7, maxOutputTokens: 2000, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
         })
       }
     );
     const data = await r.json();
-    if (!r.ok) return res.status(502).json({ error: 'The AI service returned an error. Check your API key and quota.' });
+    if (!r.ok) {
+      console.error('Gemini error:', JSON.stringify(data));
+      return res.status(502).json({ error: 'Gemini error: ' + (data.error?.message || JSON.stringify(data)).slice(0, 300) });
+    }
     const text = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').replace(/```json|```/g, '').trim();
-    const s = JSON.parse(text);
-    if (!s.title || !Array.isArray(s.passages) || !s.questions) throw new Error('bad shape');
+    if (!text) {
+      console.error('Empty response:', JSON.stringify(data));
+      return res.status(502).json({ error: 'Gemini returned no text. Reason: ' + (data.candidates?.[0]?.finishReason || 'unknown') });
+    }
+    let s;
+    try { s = JSON.parse(text); }
+    catch { return res.status(502).json({ error: 'Could not parse response: ' + text.slice(0, 300) }); }
+    if (!s.title || !Array.isArray(s.passages) || !s.questions)
+      return res.status(502).json({ error: 'Response missing expected fields: ' + text.slice(0, 300) });
     res.status(200).json(s);
   } catch (e) {
-    res.status(502).json({ error: 'Could not build the study. Please try again.' });
+    console.error('Server error:', e);
+    res.status(502).json({ error: 'Server error: ' + String(e.message || e).slice(0, 300) });
   }
 };
