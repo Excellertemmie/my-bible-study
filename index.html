@@ -131,11 +131,27 @@ function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x
   v.append(h('h3','','2. Background'),h('p','tag','Written by AI. Check it against the passage.'),h('p','',s.context));
   v.append(h('h3','','3. Key points'),h('p','tag','Interpretation by AI. Weigh it against Scripture.'));
   (s.points||[]).forEach(p=>{v.append(h('strong','',p.heading),h('p','',p.explanation))});
-  v.append(h('h3','','4. Questions for you'));
+  v.append(h('h3','','4. Questions for you'),h('p','tag','Your answers save automatically as you type — nothing to submit.'));
   [['observation','What does the text say?'],['interpretation','What does it mean?'],['application','What will you do?']].forEach(([k,l])=>{
-    v.append(h('p','tag',l));(s.questions[k]||[]).forEach((q,i)=>{const key=k+i;v.append(h('p','',q));const t=h('textarea');t.value=x.answers[key]||'';t.setAttribute('aria-label',q);
-      t.oninput=()=>{const L=S.get();const y=L.find(z=>z.id===id);y.answers[key]=t.value;S.set(L)};v.append(t)})});
-  v.append(h('h3','','5. Prayer'),h('p','tag','A suggested prayer. Change it into your own words.'),h('p','',s.prayer));}
+    v.append(h('p','tag',l));(s.questions[k]||[]).forEach((q,i)=>{const key=k+i;v.append(h('p','',q));
+      const wrap=h('div');wrap.style.position='relative';
+      const t=h('textarea');t.value=x.answers[key]||'';t.setAttribute('aria-label',q);
+      const saved=h('span','saved','Saved');saved.style.cssText='position:absolute;top:6px;right:10px;font:.8rem system-ui,sans-serif;color:var(--gold);opacity:0;transition:opacity .3s';
+      let tm;t.oninput=()=>{const L=S.get();const y=L.find(z=>z.id===id);y.answers[key]=t.value;S.set(L);
+        clearTimeout(tm);tm=setTimeout(()=>{saved.style.opacity='1';setTimeout(()=>saved.style.opacity='0',1200)},500)};
+      wrap.append(t,saved);v.append(wrap)})});
+  v.append(h('h3','','5. Prayer'),h('p','tag','A suggested prayer. Change it into your own words.'),h('p','',s.prayer));
+  const jbtn=h('button','btn','Save reflections to Journal');
+  jbtn.onclick=()=>{
+    const labels={observation:'What does the text say?',interpretation:'What does it mean?',application:'What will you do?'};
+    let body='';
+    ['observation','interpretation','application'].forEach(k=>{(s.questions[k]||[]).forEach((q,i)=>{const a=(x.answers[k+i]||'').trim();
+      if(a)body+=(body?'\n\n':'')+q+'\n'+a})});
+    if(!body.trim()){alert('Answer at least one question first, then save to Journal.');return}
+    body='Theme: '+s.theme+'\n\n'+body+'\n\nPrayer:\n'+s.prayer;
+    let L=store.get();L.push({id:Date.now().toString(36),date:new Date().toISOString(),title:s.title,ref:s.passages.join(', '),body});
+    store.set(L);jbtn.textContent='Saved to Journal ✓';jbtn.disabled=true;};
+  v.append(jbtn);}
 $('gen').onclick=async()=>{const topic=$('topic').value.trim();if(!topic)return;
   let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
   $('gen').disabled=true;$('stMsg').textContent='Preparing your study… this can take a minute or two.';
