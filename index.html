@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Bible Study</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#16302b">
+<link rel="icon" href="icon.svg">
+<style>
+:root{--bg:#f2f0ea;--ink:#1d2623;--mute:#5b6763;--deep:#16302b;--gold:#c9862b;--line:#d5d2c8;--card:#fbfaf6}
+@media(prefers-color-scheme:dark){:root{--bg:#101a18;--ink:#e6e8e2;--mute:#9aa8a3;--deep:#0b1211;--line:#2a3a36;--card:#16231f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.7 "Iowan Old Style",Palatino,Georgia,serif;padding-bottom:70px}
+header{background:var(--deep);color:#f2f0ea;padding:calc(14px + env(safe-area-inset-top)) 20px 14px}
+h1{margin:0;font-size:1.25rem;font-weight:600}
+main{max-width:680px;margin:0 auto;padding:20px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--deep);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;color:#9db2ac;font:inherit;font-size:.95rem;padding:14px 0;cursor:pointer}
+nav button[aria-selected=true]{color:#fff;box-shadow:inset 0 3px var(--gold)}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+select,input,textarea{font:inherit;font-size:1rem;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+select{flex:1;min-width:120px}
+input,textarea{width:100%;margin-bottom:10px}textarea{min-height:140px}
+.btn{font:inherit;font-size:.95rem;padding:9px 16px;border-radius:6px;border:1px solid var(--deep);background:var(--deep);color:#fff;cursor:pointer}
+.btn.alt{background:none;color:var(--ink);border-color:var(--line)}
+.btn.del{background:none;color:#a33;border-color:transparent}
+.v{margin:0 0 .6em}.v sup{color:var(--gold);font-weight:700;font-size:.7em;margin-right:5px;font-family:system-ui,sans-serif}
+.v.sel{background:rgba(201,134,43,.18);border-radius:4px}
+.hint,.meta{color:var(--mute);font-size:.88rem;font-family:system-ui,sans-serif}
+.entry{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:12px}
+.entry h3{margin:0 0 2px;font-size:1.05rem}.entry p{white-space:pre-wrap;margin:8px 0}
+section[hidden]{display:none}
+</style></head><body>
+<header><h1>My Bible Study</h1></header>
+<main>
+<section id="read">
+  <div class="row"><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
+  <div id="text"></div>
+  <p class="hint">Tap verses to select them, then write about them.</p>
+  <button class="btn" id="toJournal">Journal this passage</button>
+  <p class="hint" id="tr"></p>
+</section>
+<section id="journal" hidden>
+  <input id="jTitle" placeholder="Title (e.g. What stood out to me)" aria-label="Title">
+  <input id="jRef" placeholder="Passage (e.g. Ephesians 2:10)" aria-label="Passage">
+  <textarea id="jBody" placeholder="What is God teaching me? What will I do about it?" aria-label="Reflection"></textarea>
+  <div class="row"><button class="btn" id="save">Save entry</button><button class="btn alt" id="clear">Clear</button></div>
+  <div id="list"></div>
+</section>
+<section id="backup" hidden>
+  <p>Your entries live only in this browser. Clearing browser data erases them, so download a backup regularly.</p>
+  <div class="row"><button class="btn" id="exp">Download backup</button>
+  <button class="btn alt" id="impBtn">Restore from backup</button></div>
+  <input type="file" id="imp" accept=".json" hidden>
+  <p class="meta" id="status"></p>
+</section>
+</main>
+<nav role="tablist"><button data-t="read" aria-selected="true">Read</button><button data-t="journal">Journal</button><button data-t="backup">Backup</button></nav>
+<script>
+const $=id=>document.getElementById(id);
+let bible={books:{}},editing=null,picked=new Set();
+const store={get:()=>{try{return JSON.parse(localStorage.getItem('entries')||'[]')}catch{return[]}},
+  set:v=>{try{localStorage.setItem('entries',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full or blocked.')}}};
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  ['read','journal','backup'].forEach(s=>$(s).hidden=s!==b.dataset.t);
+  if(b.dataset.t==='journal')render();
+});
+
+fetch('bible.json').then(r=>r.json()).then(d=>{bible=d;$('tr').textContent='Translation: '+d.translation;
+  $('book').innerHTML='';Object.keys(d.books).forEach(k=>$('book').add(new Option(k,k)));fillChaps();}).catch(()=>$('text').textContent='Could not load bible.json.');
+function fillChaps(){$('chap').innerHTML='';Object.keys(bible.books[$('book').value]).forEach(c=>$('chap').add(new Option(c,c)));show();}
+function show(){picked.clear();const t=$('text');t.innerHTML='';
+  const vs=bible.books[$('book').value][$('chap').value];
+  Object.entries(vs).forEach(([n,tx])=>{const p=document.createElement('p');p.className='v';p.dataset.n=n;
+    const s=document.createElement('sup');s.textContent=n;p.append(s,tx);
+    p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel')};t.append(p)});}
+$('book').onchange=fillChaps;$('chap').onchange=show;
+function refText(){const b=$('book').value,c=$('chap').value;
+  const ns=[...picked].map(Number).sort((a,b)=>a-b);if(!ns.length)return b+' '+c;
+  const r=[];let s=ns[0],p=s;for(const n of ns.slice(1).concat([null])){if(n===p+1){p=n;continue}r.push(s===p?s:s+'–'+p);s=p=n}
+  return b+' '+c+':'+r.join(', ');}
+$('toJournal').onclick=()=>{$('jRef').value=refText();document.querySelector('[data-t=journal]').click();$('jBody').focus();};
+
+function render(){const L=store.get().sort((a,b)=>b.date.localeCompare(a.date));$('list').innerHTML='';
+  if(!L.length){$('list').innerHTML='<p class="hint">No entries yet. Read a passage and tap "Journal this passage".</p>';return}
+  L.forEach(e=>{const d=document.createElement('div');d.className='entry';
+    const h=document.createElement('h3');h.textContent=e.title||'Untitled';
+    const m=document.createElement('div');m.className='meta';m.textContent=(e.ref?e.ref+' · ':'')+new Date(e.date).toLocaleDateString();
+    const p=document.createElement('p');p.textContent=e.body;
+    const ed=document.createElement('button');ed.className='btn alt';ed.textContent='Edit';
+    ed.onclick=()=>{editing=e.id;$('jTitle').value=e.title;$('jRef').value=e.ref;$('jBody').value=e.body;$('save').textContent='Update entry';scrollTo(0,0)};
+    const dl=document.createElement('button');dl.className='btn del';dl.textContent='Delete';
+    dl.onclick=()=>{if(confirm('Delete this entry?')){store.set(store.get().filter(x=>x.id!==e.id));render()}};
+    d.append(h,m,p,ed,dl);$('list').append(d)});}
+function clearForm(){editing=null;['jTitle','jRef','jBody'].forEach(i=>$(i).value='');$('save').textContent='Save entry';}
+$('clear').onclick=clearForm;
+$('save').onclick=()=>{const body=$('jBody').value.trim();if(!body&&!$('jTitle').value.trim())return;
+  let L=store.get();const o={title:$('jTitle').value.trim(),ref:$('jRef').value.trim(),body};
+  if(editing)L=L.map(x=>x.id===editing?{...x,...o}:x);else L.push({id:Date.now().toString(36),date:new Date().toISOString(),...o});
+  store.set(L);clearForm();render();};
+
+$('exp').onclick=()=>{const b=new Blob([JSON.stringify({entries:store.get()},null,1)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='bible-journal-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  $('status').textContent='Backup downloaded. Keep it somewhere safe.';};
+$('impBtn').onclick=()=>$('imp').click();
+$('imp').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!Array.isArray(d.entries))throw 0;
+  const cur=store.get(),ids=new Set(cur.map(x=>x.id));const add=d.entries.filter(x=>x.id&&!ids.has(x.id));
+  store.set(cur.concat(add));$('status').textContent='Restored '+add.length+' entries.';}
+  catch{$('status').textContent='That file is not a valid backup.'}};
+
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script></body></html>
