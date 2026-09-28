@@ -138,7 +138,7 @@ function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x
   v.append(h('h3','','5. Prayer'),h('p','tag','A suggested prayer. Change it into your own words.'),h('p','',s.prayer));}
 $('gen').onclick=async()=>{const topic=$('topic').value.trim();if(!topic)return;
   let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
-  $('gen').disabled=true;$('stMsg').textContent='Preparing your study… about 20 seconds.';
+  $('gen').disabled=true;$('stMsg').textContent='Preparing your study… this can take a minute or two.';
   try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic,depth:$('depth').value})});
     if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode. Tap Start study to try again.')}
     const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');
