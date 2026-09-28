@@ -27,7 +27,7 @@ input,textarea{width:100%;margin-bottom:10px}textarea{min-height:140px}
 .btn.del{background:none;color:#a33;border-color:transparent}
 .v{margin:0 0 .6em}.v sup{color:var(--gold);font-weight:700;font-size:.7em;margin-right:5px;font-family:system-ui,sans-serif}
 .v.sel{background:rgba(201,134,43,.18);border-radius:4px}
-.hint,.meta{color:var(--mute);font-size:.88rem;font-family:system-ui,sans-serif}
+.st h2{margin:.2em 0}.st h3{margin:1.4em 0 .3em;font-size:1.05rem}.tag{font:.8rem system-ui,sans-serif;color:var(--mute)}.warn{color:#b5541c}.ref{border-left:3px solid var(--gold);padding-left:12px;margin:12px 0}.hint,.meta{color:var(--mute);font-size:.88rem;font-family:system-ui,sans-serif}
 .entry{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:12px}
 .entry h3{margin:0 0 2px;font-size:1.05rem}.entry p{white-space:pre-wrap;margin:8px 0}
 section[hidden]{display:none}
@@ -41,6 +41,11 @@ section[hidden]{display:none}
   <button class="btn" id="toJournal">Journal this passage</button>
   <p class="hint" id="tr"></p>
 </section>
+<section id="study" hidden>
+<div id="stForm"><input id="topic" maxlength="200" placeholder="What do you want to explore? (e.g. God's purpose for my life)" aria-label="Topic">
+<div class="row"><select id="depth" aria-label="Depth"><option value="quick">Quick (5–10 min)</option><option value="standard" selected>Standard (20–30 min)</option><option value="deep">Deep (45+ min)</option></select><button class="btn" id="gen">Start study</button></div>
+<p class="meta" id="stMsg">Creating a new study needs internet. Saved studies work offline.</p><div id="stList"></div></div>
+<div id="stView" class="st" hidden></div></section>
 <section id="journal" hidden>
   <input id="jTitle" placeholder="Title (e.g. What stood out to me)" aria-label="Title">
   <input id="jRef" placeholder="Passage (e.g. Ephesians 2:10)" aria-label="Passage">
@@ -56,7 +61,7 @@ section[hidden]{display:none}
   <p class="meta" id="status"></p>
 </section>
 </main>
-<nav role="tablist"><button data-t="read" aria-selected="true">Read</button><button data-t="journal">Journal</button><button data-t="backup">Backup</button></nav>
+<nav role="tablist"><button data-t="read" aria-selected="true">Read</button><button data-t="study">Study</button><button data-t="journal">Journal</button><button data-t="backup">Backup</button></nav>
 <script>
 const $=id=>document.getElementById(id);
 let bible={books:{}},editing=null,picked=new Set();
@@ -65,8 +70,8 @@ const store={get:()=>{try{return JSON.parse(localStorage.getItem('entries')||'[]
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
-  ['read','journal','backup'].forEach(s=>$(s).hidden=s!==b.dataset.t);
-  if(b.dataset.t==='journal')render();
+  ['read','study','journal','backup'].forEach(s=>$(s).hidden=s!==b.dataset.t);
+  if(b.dataset.t==='journal')render();if(b.dataset.t==='study')stList();
 });
 
 function load(keep){const v=$('ver').value;try{localStorage.setItem('ver',v)}catch{}
@@ -106,13 +111,48 @@ $('save').onclick=()=>{const body=$('jBody').value.trim();if(!body&&!$('jTitle')
   if(editing)L=L.map(x=>x.id===editing?{...x,...o}:x);else L.push({id:Date.now().toString(36),date:new Date().toISOString(),...o});
   store.set(L);clearForm();render();};
 
-$('exp').onclick=()=>{const b=new Blob([JSON.stringify({entries:store.get()},null,1)],{type:'application/json'});
+
+const S={get:()=>{try{return JSON.parse(localStorage.getItem('studies')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('studies',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
+const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+function parseRef(r){const m=String(r).match(/^(.+?)\s+(\d+):(\d+)(?:\s*[-–]\s*(\d+))?$/);if(!m)return null;
+  const ch=bible.books[m[1].trim()]&&bible.books[m[1].trim()][m[2]];if(!ch)return null;const a=+m[3],z=+(m[4]||m[3]),vs=[];
+  for(let i=a;i<=z;i++){if(!ch[i])return null;vs.push([i,ch[i]])}return vs.length?vs:null;}
+function stList(){$('stView').hidden=true;$('stForm').hidden=false;const L=S.get().sort((a,b)=>b.date.localeCompare(a.date)),box=$('stList');box.innerHTML='';
+  if(L.length)box.append(h('h3','','Saved studies'));
+  L.forEach(x=>{const d=h('div','entry');d.append(h('h3','',x.study.title),h('div','meta',x.topic+' · '+new Date(x.date).toLocaleDateString()));
+    const o=h('button','btn alt','Open');o.onclick=()=>openStudy(x.id);const del=h('button','btn del','Delete');
+    del.onclick=()=>{if(confirm('Delete this study and your answers?')){S.set(S.get().filter(y=>y.id!==x.id));stList()}};d.append(o,del);box.append(d)});}
+function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x.study,v=$('stView');v.innerHTML='';$('stForm').hidden=true;v.hidden=false;
+  const back=h('button','btn alt','← All studies');back.onclick=stList;v.append(back,h('h2','',s.title),h('p','',s.theme));
+  v.append(h('h3','','1. Read the passages first'),h('p','tag','Verse text comes from the Bible in this app, not from the AI. Currently showing '+(bible.translation||'')+'.'));
+  s.passages.forEach(r=>{const d=h('div','ref');d.append(h('strong','',r));const vs=parseRef(r);
+    if(vs)vs.forEach(([n,t])=>{const p=h('p','v');const u=h('sup','',n);p.append(u,t);d.append(p)});
+    else d.append(h('p','tag warn','Could not verify this reference in the Bible text. Look it up yourself before relying on it.'));v.append(d)});
+  v.append(h('h3','','2. Background'),h('p','tag','Written by AI. Check it against the passage.'),h('p','',s.context));
+  v.append(h('h3','','3. Key points'),h('p','tag','Interpretation by AI. Weigh it against Scripture.'));
+  (s.points||[]).forEach(p=>{v.append(h('strong','',p.heading),h('p','',p.explanation))});
+  v.append(h('h3','','4. Questions for you'));
+  [['observation','What does the text say?'],['interpretation','What does it mean?'],['application','What will you do?']].forEach(([k,l])=>{
+    v.append(h('p','tag',l));(s.questions[k]||[]).forEach((q,i)=>{const key=k+i;v.append(h('p','',q));const t=h('textarea');t.value=x.answers[key]||'';t.setAttribute('aria-label',q);
+      t.oninput=()=>{const L=S.get();const y=L.find(z=>z.id===id);y.answers[key]=t.value;S.set(L)};v.append(t)})});
+  v.append(h('h3','','5. Prayer'),h('p','tag','A suggested prayer. Change it into your own words.'),h('p','',s.prayer));}
+$('gen').onclick=async()=>{const topic=$('topic').value.trim();if(!topic)return;
+  let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
+  $('gen').disabled=true;$('stMsg').textContent='Preparing your study… about 20 seconds.';
+  try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic,depth:$('depth').value})});
+    if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode. Tap Start study to try again.')}
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');
+    localStorage.setItem('pass',pass);const st={id:Date.now().toString(36),date:new Date().toISOString(),topic,study:d,answers:{}};
+    S.set(S.get().concat(st));$('topic').value='';$('stMsg').textContent='';openStudy(st.id);
+  }catch(e){$('stMsg').textContent=navigator.onLine?e.message:'You are offline. Connect to the internet to create a new study.'}
+  $('gen').disabled=false;};
+$('exp').onclick=()=>{const b=new Blob([JSON.stringify({entries:store.get(),studies:S.get()},null,1)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='bible-journal-'+new Date().toISOString().slice(0,10)+'.json';a.click();
   $('status').textContent='Backup downloaded. Keep it somewhere safe.';};
 $('impBtn').onclick=()=>$('imp').click();
 $('imp').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!Array.isArray(d.entries))throw 0;
   const cur=store.get(),ids=new Set(cur.map(x=>x.id));const add=d.entries.filter(x=>x.id&&!ids.has(x.id));
-  store.set(cur.concat(add));$('status').textContent='Restored '+add.length+' entries.';}
+  store.set(cur.concat(add));const sc=S.get(),si=new Set(sc.map(x=>x.id)),sa=(d.studies||[]).filter(x=>x.id&&!si.has(x.id));S.set(sc.concat(sa));$('status').textContent='Restored '+add.length+' entries and '+sa.length+' studies.';}
   catch{$('status').textContent='That file is not a valid backup.'}};
 
 try{const sv=localStorage.getItem('ver');if(sv)$('ver').value=sv}catch{}
