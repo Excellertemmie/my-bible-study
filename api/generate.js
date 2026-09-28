@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: SYSTEM }] },
           contents: [{ role: 'user', parts: [{ text: `Topic: ${topic.trim()}\nDepth: ${d}` }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2000, responseMimeType: 'application/json' }
+          generationConfig: { temperature: 0.7, maxOutputTokens: 4000, responseMimeType: 'application/json' }
         })
       }
     );
@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
     }
     let s;
     try { s = JSON.parse(text); }
-    catch { return res.status(502).json({ error: 'Could not parse response: ' + text.slice(0, 300) }); }
+    catch { return res.status(502).json({ error: 'The response was cut off before finishing. Try again, or pick a shorter depth.' }); }
     if (!s.title || !Array.isArray(s.passages) || !s.questions)
       return res.status(502).json({ error: 'Response missing expected fields: ' + text.slice(0, 300) });
     res.status(200).json(s);
