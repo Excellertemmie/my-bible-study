@@ -143,9 +143,10 @@ function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x
   v.append(h('h3','','5. Prayer'),h('p','tag','A suggested prayer. Change it into your own words.'),h('p','',s.prayer));
   const jbtn=h('button','btn','Save reflections to Journal');
   jbtn.onclick=()=>{
+    const cur=S.get().find(z=>z.id===id)||x;
     const labels={observation:'What does the text say?',interpretation:'What does it mean?',application:'What will you do?'};
     let body='';
-    ['observation','interpretation','application'].forEach(k=>{(s.questions[k]||[]).forEach((q,i)=>{const a=(x.answers[k+i]||'').trim();
+    ['observation','interpretation','application'].forEach(k=>{(s.questions[k]||[]).forEach((q,i)=>{const a=(cur.answers[k+i]||'').trim();
       if(a)body+=(body?'\n\n':'')+q+'\n'+a})});
     if(!body.trim()){alert('Answer at least one question first, then save to Journal.');return}
     body='Theme: '+s.theme+'\n\n'+body+'\n\nPrayer:\n'+s.prayer;
