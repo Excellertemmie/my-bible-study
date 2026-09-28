@@ -16,6 +16,7 @@ module.exports = async (req, res) => {
   if (typeof topic !== 'string' || !topic.trim() || topic.length > 200)
     return res.status(400).json({ error: 'Please enter a topic (up to 200 characters).' });
   const d = ['quick', 'standard', 'deep'].includes(depth) ? depth : 'standard';
+  const started = Date.now();
   try {
     const r = await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
@@ -29,6 +30,7 @@ module.exports = async (req, res) => {
         })
       }
     );
+    console.log('Gemini responded after', Date.now() - started, 'ms');
     const data = await r.json();
     if (!r.ok) {
       console.error('Gemini error:', JSON.stringify(data));
