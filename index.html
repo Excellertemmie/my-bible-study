@@ -42,6 +42,7 @@ input,textarea{width:100%;margin-bottom:10px}textarea{min-height:100px}
 label.chk{display:flex;align-items:center;gap:8px;margin:10px 0;font:.9rem system-ui,sans-serif;color:var(--mute)}
 label.chk input{width:auto;margin:0}
 .badge{display:inline-block;font:.78rem system-ui,sans-serif;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:3px 10px;margin:2px 6px 2px 0;color:var(--mute)}
+.btn.on{background:var(--gold);border-color:var(--gold);color:#1d2623}
 section[hidden]{display:none}
 @media print{
   header,nav,.noprint{display:none!important}
@@ -68,7 +69,7 @@ section[hidden]{display:none}
   <p class="hint" style="margin-top:20px"><a href="#" id="backupLink" style="color:var(--mute)">⚙️ Backup &amp; restore your data</a></p>
 </section>
 <section id="read" hidden>
-  <div class="row"><select id="ver" aria-label="Bible version"><option value="kjv">KJV</option><option value="bbe">BBE</option></select><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
+  <div class="row"><select id="ver" aria-label="Bible version"><option value="kjv">KJV</option><option value="bbe">BBE</option><option value="asv">ASV</option></select><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
   <div id="text"></div>
   <p class="hint">Tap verses to select them, then write about them or save them.</p>
   <div class="row"><button class="btn" id="toJournal">Journal this passage</button><button class="btn alt" id="saveVerse">Save to Vault</button><button class="btn alt" id="askBtn">Ask about this passage</button></div>
@@ -90,9 +91,12 @@ section[hidden]{display:none}
     <p class="meta" id="progText"></p>
     <div class="grid" id="progGrid"></div>
   </div>
+  <div class="row"><button class="btn alt" id="chapBtn">Chapter study</button></div>
+  <div id="chapPanel" class="panel" hidden></div>
   <p class="hint" id="tr"></p>
 </section>
 <section id="study" hidden>
+<div class="row"><button class="btn alt" id="modeStudy">📖 Study</button><button class="btn alt" id="modeQuiz">🧠 Quiz</button></div>
 <div id="stForm"><input id="topic" maxlength="200" placeholder="What do you want to explore? (e.g. God's purpose for my life)" aria-label="Topic">
 <div class="row"><select id="stype" aria-label="Study type">
   <option value="personal">Personal Bible Study</option>
@@ -118,7 +122,14 @@ section[hidden]{display:none}
 </select></div>
 <div class="row"><select id="depth" aria-label="Length"><option value="quick">Quick (5–10 min)</option><option value="standard" selected>Standard (20–30 min)</option><option value="deep">Deep (45+ min)</option></select><button class="btn" id="gen">Start study</button></div>
 <p class="meta" id="stMsg">Creating a new study needs internet. Saved studies work offline.</p><div id="stList"></div></div>
-<div id="stView" class="st" hidden></div></section>
+<div id="quizForm" hidden><input id="qTopic" maxlength="200" placeholder="What should the quiz cover? (e.g. The Book of Ruth)" aria-label="Quiz topic">
+<div class="row"><select id="qCount" aria-label="Number of questions"><option value="5">5 questions</option><option value="10" selected>10 questions</option><option value="15">15 questions</option></select>
+<select id="qDiff" aria-label="Difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select>
+<button class="btn" id="qGen">Generate quiz</button></div>
+<p class="meta" id="qMsg">Creating a new quiz needs internet. Saved quizzes work offline.</p><div id="quizList"></div></div>
+<div id="stView" class="st" hidden></div>
+<div id="quizView" class="st" hidden></div>
+</section>
 <section id="vault" hidden>
   <div id="vaultTags"></div>
   <div id="vaultList"></div>
@@ -143,7 +154,7 @@ section[hidden]{display:none}
 <script>
 const $=id=>document.getElementById(id);
 const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
-let bible={books:{}},editing=null,picked=new Set(),vaultFilter=null;
+let bible={books:{}},editing=null,picked=new Set(),vaultFilter=null,quizMode=false;
 const store={get:()=>{try{return JSON.parse(localStorage.getItem('entries')||'[]')}catch{return[]}},
   set:v=>{try{localStorage.setItem('entries',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full or blocked.')}}};
 const S={get:()=>{try{return JSON.parse(localStorage.getItem('studies')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('studies',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
@@ -155,7 +166,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
   ['home','read','study','vault','journal'].forEach(s=>$(s).hidden=s!==b.dataset.t);
   $('backup').hidden=true;
-  if(b.dataset.t==='journal')render();if(b.dataset.t==='study')stList();
+  if(b.dataset.t==='journal')render();if(b.dataset.t==='study'){if(quizMode)quizList();else stList()}
   if(b.dataset.t==='home')renderHome();if(b.dataset.t==='vault')renderVault();
 });
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>document.querySelector('[data-t="'+b.dataset.go+'"]').click());
@@ -176,7 +187,7 @@ function show(){picked.clear();const t=$('text');t.innerHTML='';
     p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel')};t.append(p)});
   lastRead.set({ver:$('ver').value,book:$('book').value,chap:$('chap').value});
   const prog=P.get();$('readChk').checked=(prog[$('book').value]||[]).includes($('chap').value);
-  $('vaultForm').hidden=true;$('askPanel').hidden=true;
+  $('vaultForm').hidden=true;$('askPanel').hidden=true;$('chapPanel').hidden=true;
   if(!$('progPanel').hidden)progUpdate();}
 $('book').onchange=()=>fillChaps();$('ver').onchange=()=>load(true);$('chap').onchange=show;
 function refText(){const b=$('book').value,c=$('chap').value;
@@ -195,6 +206,31 @@ function progUpdate(){const book=$('book').value,chap=$('chap').value;
 $('toggleProg').onclick=()=>{$('progPanel').hidden=!$('progPanel').hidden;if(!$('progPanel').hidden)progUpdate();};
 $('readChk').onchange=()=>{const book=$('book').value,chap=$('chap').value;const prog=P.get();const set=new Set(prog[book]||[]);
   if($('readChk').checked)set.add(chap);else set.delete(chap);prog[book]=[...set];P.set(prog);if(!$('progPanel').hidden)progUpdate();};
+
+const CN={get:()=>{try{return JSON.parse(localStorage.getItem('chapterNotes')||'{}')}catch{return{}}},set:v=>{try{localStorage.setItem('chapterNotes',JSON.stringify(v))}catch{}}};
+function renderChapPanel(notes){const p=$('chapPanel');p.innerHTML='';
+  p.append(h('p','tag','AI background for this chapter — weigh it against the text above.'));
+  p.append(h('p','',notes.context));
+  if(notes.themes&&notes.themes.length){p.append(h('strong','','Themes'));const w=h('div');
+    notes.themes.forEach(t=>w.append(h('span','badge',t)));p.append(w)}
+  if(notes.keyVerses&&notes.keyVerses.length){p.append(h('strong','','Key verses'));
+    notes.keyVerses.forEach(kv=>{const b=h('button','chip',kv.ref);
+      b.onclick=()=>{const m=String(kv.ref).match(/^(.+?)\s+(\d+):/);if(m&&bible.books[m[1].trim()]){$('book').value=m[1].trim();fillChaps(m[2]);scrollTo(0,0)}};
+      p.append(b);p.append(h('span','meta',' '+kv.note))})}
+  if(notes.questions&&notes.questions.length){p.append(h('strong','','Questions to consider'));
+    notes.questions.forEach(q=>p.append(h('p','',q)))}
+  const rg=h('button','btn alt','Regenerate');rg.style.marginTop='10px';rg.onclick=()=>fetchChapNotes(true);p.append(rg);}
+async function fetchChapNotes(force){const book=$('book').value,chap=$('chap').value,key=book+':'+chap;
+  const cache=CN.get();
+  if(!force&&cache[key]){renderChapPanel(cache[key]);return}
+  let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
+  $('chapPanel').innerHTML='<p class="meta">Preparing chapter notes…</p>';
+  try{const r=await fetch('/api/chapter',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({book,chapter:chap})});
+    if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode. Tap Chapter study to try again.')}
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');
+    localStorage.setItem('pass',pass);cache[key]=d;CN.set(cache);renderChapPanel(d);
+  }catch(e){$('chapPanel').innerHTML='';$('chapPanel').append(h('p','meta',navigator.onLine?e.message:'You are offline. Connect to the internet to load chapter notes.'))}}
+$('chapBtn').onclick=()=>{$('chapPanel').hidden=!$('chapPanel').hidden;if(!$('chapPanel').hidden)fetchChapNotes(false);};
 
 $('saveVerse').onclick=()=>{if(!picked.size){alert('Tap one or more verses first, then Save to Vault.');return}
   $('vaultForm').hidden=false;$('askPanel').hidden=true;$('vTag').focus();};
@@ -371,7 +407,56 @@ $('gen').onclick=async()=>{const topic=$('topic').value.trim();if(!topic)return;
   }catch(e){$('stMsg').textContent=navigator.onLine?e.message:'You are offline. Connect to the internet to create a new study.'}
   $('gen').disabled=false;};
 
-$('exp').onclick=()=>{const b=new Blob([JSON.stringify({entries:store.get(),studies:S.get(),vault:V.get(),progress:P.get()},null,1)],{type:'application/json'});
+const Q={get:()=>{try{return JSON.parse(localStorage.getItem('quizzes')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('quizzes',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
+function setMode(quiz){quizMode=quiz;
+  $('modeStudy').classList.toggle('on',!quiz);$('modeQuiz').classList.toggle('on',quiz);
+  $('stForm').hidden=quiz;$('stView').hidden=true;
+  $('quizForm').hidden=!quiz;$('quizView').hidden=true;
+  if(quiz)quizList();else stList();}
+$('modeStudy').onclick=()=>setMode(false);$('modeQuiz').onclick=()=>setMode(true);
+
+function quizList(){$('quizView').hidden=true;$('quizForm').hidden=false;const L=Q.get().sort((a,b)=>b.date.localeCompare(a.date)),box=$('quizList');box.innerHTML='';
+  if(L.length)box.append(h('h3','','Saved quizzes'));
+  L.forEach(x=>{const d=h('div','entry');const sc=x.submitted?' · scored '+x.score+'/'+x.quiz.questions.length:'';
+    d.append(h('h3','',x.quiz.title),h('div','meta',x.topic+sc+' · '+new Date(x.date).toLocaleDateString()));
+    const o=h('button','btn alt',x.submitted?'Review':'Take quiz');o.onclick=()=>openQuiz(x.id);
+    const del=h('button','btn del','Delete');del.onclick=()=>{if(confirm('Delete this quiz?')){Q.set(Q.get().filter(y=>y.id!==x.id));quizList()}};
+    d.append(o,del);box.append(d)});}
+function openQuiz(id){const x=Q.get().find(y=>y.id===id);if(!x)return;const qz=x.quiz,v=$('quizView');v.innerHTML='';$('quizForm').hidden=true;v.hidden=false;
+  const back=h('button','btn alt noprint','← All quizzes');back.onclick=quizList;v.append(back,h('h2','',qz.title));
+  if(x.submitted)v.append(h('p','',(x.score===qz.questions.length?'Perfect! ':'')+'You scored '+x.score+' out of '+qz.questions.length+'.'));
+  qz.questions.forEach((qq,qi)=>{const card=h('div','panel');card.append(h('strong','',(qi+1)+'. '+qq.prompt));
+    const opts=h('div');
+    qq.options.forEach((opt,oi)=>{const b=h('button','chip',opt);
+      if(x.submitted){if(oi===qq.correctIndex)b.style.cssText='background:#3a7a4a;border-color:#3a7a4a;color:#fff';
+        else if(x.answers[qi]===oi)b.style.cssText='background:#a33;border-color:#a33;color:#fff';}
+      else if(x.answers[qi]===oi)b.classList.add('on');
+      b.onclick=()=>{if(x.submitted)return;const L=Q.get();const y=L.find(z=>z.id===id);y.answers[qi]=oi;Q.set(L);openQuiz(id)};
+      opts.append(b)});
+    card.append(opts);
+    if(x.submitted){card.append(h('p','tag',qq.explanation));
+      if(qq.reference){const rb=h('button','chip',qq.reference);
+        rb.onclick=()=>{const m=String(qq.reference).match(/^(.+?)\s+(\d+):/);if(m&&bible.books[m[1].trim()]){document.querySelector('[data-t=read]').click();$('book').value=m[1].trim();fillChaps(m[2])}};
+        card.append(rb)}}
+    v.append(card)});
+  if(!x.submitted){const sub=h('button','btn','Submit quiz');
+    sub.onclick=()=>{const L=Q.get();const y=L.find(z=>z.id===id);
+      let score=0;qz.questions.forEach((qq,qi)=>{if(y.answers[qi]===qq.correctIndex)score++});
+      y.submitted=true;y.score=score;Q.set(L);openQuiz(id)};
+    v.append(sub)}}
+$('qGen').onclick=async()=>{const topic=$('qTopic').value.trim();if(!topic)return;
+  let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
+  $('qGen').disabled=true;$('qMsg').textContent='Preparing your quiz… this can take a minute or two.';
+  try{const r=await fetch('/api/quiz',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic,count:$('qCount').value,difficulty:$('qDiff').value})});
+    if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode. Tap Generate quiz to try again.')}
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');
+    localStorage.setItem('pass',pass);const qz={id:Date.now().toString(36),date:new Date().toISOString(),topic,quiz:d,answers:{},submitted:false,score:0};
+    Q.set(Q.get().concat(qz));$('qTopic').value='';$('qMsg').textContent='';openQuiz(qz.id);
+  }catch(e){$('qMsg').textContent=navigator.onLine?e.message:'You are offline. Connect to the internet to create a new quiz.'}
+  $('qGen').disabled=false;};
+setMode(false);
+
+$('exp').onclick=()=>{const b=new Blob([JSON.stringify({entries:store.get(),studies:S.get(),vault:V.get(),progress:P.get(),quizzes:Q.get(),chapterNotes:CN.get()},null,1)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='bible-journal-'+new Date().toISOString().slice(0,10)+'.json';a.click();
   $('status').textContent='Backup downloaded. Keep it somewhere safe.';};
 $('impBtn').onclick=()=>$('imp').click();
@@ -380,8 +465,10 @@ $('imp').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text(
   store.set(cur.concat(add));
   const sc=S.get(),si=new Set(sc.map(x=>x.id)),sa=(d.studies||[]).filter(x=>x.id&&!si.has(x.id));S.set(sc.concat(sa));
   const vc=V.get(),vi=new Set(vc.map(x=>x.id)),va=(d.vault||[]).filter(x=>x.id&&!vi.has(x.id));V.set(vc.concat(va));
+  const qc=Q.get(),qi=new Set(qc.map(x=>x.id)),qa=(d.quizzes||[]).filter(x=>x.id&&!qi.has(x.id));Q.set(qc.concat(qa));
   if(d.progress)P.set(Object.assign(P.get(),d.progress));
-  $('status').textContent='Restored '+add.length+' entries, '+sa.length+' studies, '+va.length+' saved verses.';}
+  if(d.chapterNotes)CN.set(Object.assign(CN.get(),d.chapterNotes));
+  $('status').textContent='Restored '+add.length+' entries, '+sa.length+' studies, '+va.length+' saved verses, '+qa.length+' quizzes.';}
   catch{$('status').textContent='That file is not a valid backup.'}};
 
 try{const sv=localStorage.getItem('ver');if(sv)$('ver').value=sv}catch{}
