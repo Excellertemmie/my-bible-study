@@ -15,13 +15,13 @@ header{background:var(--deep);color:#f2f0ea;padding:calc(14px + env(safe-area-in
 h1{margin:0;font-size:1.25rem;font-weight:600}
 main{max-width:680px;margin:0 auto;padding:20px}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--deep);padding-bottom:env(safe-area-inset-bottom)}
-nav button{flex:1;background:none;border:0;color:#9db2ac;font:inherit;font-size:.95rem;padding:14px 0;cursor:pointer}
+nav button{flex:1;background:none;border:0;color:#9db2ac;font:inherit;font-size:.8rem;padding:12px 2px;cursor:pointer}
 nav button[aria-selected=true]{color:#fff;box-shadow:inset 0 3px var(--gold)}
 button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 select,input,textarea{font:inherit;font-size:1rem;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
 select{flex:1;min-width:120px}
-input,textarea{width:100%;margin-bottom:10px}textarea{min-height:140px}
+input,textarea{width:100%;margin-bottom:10px}textarea{min-height:100px}
 .btn{font:inherit;font-size:.95rem;padding:9px 16px;border-radius:6px;border:1px solid var(--deep);background:var(--deep);color:#fff;cursor:pointer}
 .btn.alt{background:none;color:var(--ink);border-color:var(--line)}
 .btn.del{background:none;color:#a33;border-color:transparent}
@@ -30,15 +30,58 @@ input,textarea{width:100%;margin-bottom:10px}textarea{min-height:140px}
 .st h2{margin:.2em 0}.st h3{margin:1.4em 0 .3em;font-size:1.05rem}.tag{font:.8rem system-ui,sans-serif;color:var(--mute)}.warn{color:#b5541c}.ref{border-left:3px solid var(--gold);padding-left:12px;margin:12px 0}.hint,.meta{color:var(--mute);font-size:.88rem;font-family:system-ui,sans-serif}
 .entry{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:12px}
 .entry h3{margin:0 0 2px;font-size:1.05rem}.entry p{white-space:pre-wrap;margin:8px 0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0}
+.stat{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.stat div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px;min-width:96px;font:.85rem system-ui,sans-serif}
+.stat b{display:block;font-size:1.4rem;color:var(--gold);font-family:inherit}
+.chip{display:inline-block;font:.8rem system-ui,sans-serif;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:4px 12px;margin:2px 6px 2px 0;cursor:pointer}
+.chip.on{background:var(--gold);border-color:var(--gold);color:#1d2623}
+.grid{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.grid button{width:38px;height:38px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:.8rem system-ui,sans-serif;cursor:pointer}
+.grid button.done{background:var(--gold);border-color:var(--gold);color:#1d2623;font-weight:700}
+label.chk{display:flex;align-items:center;gap:8px;margin:10px 0;font:.9rem system-ui,sans-serif;color:var(--mute)}
+label.chk input{width:auto;margin:0}
 section[hidden]{display:none}
 </style></head><body>
 <header><h1>My Bible Study</h1></header>
 <main>
-<section id="read">
+<section id="home">
+  <div class="stat">
+    <div><b id="stStudies">0</b>Studies</div>
+    <div><b id="stVault">0</b>Saved verses</div>
+    <div><b id="stJournal">0</b>Journal entries</div>
+  </div>
+  <div id="continueBox"></div>
+  <h3>Start something new</h3>
+  <div class="row">
+    <button class="btn alt" data-go="read">📖 Read Scripture</button>
+    <button class="btn alt" data-go="study">🔎 Explore a topic</button>
+    <button class="btn alt" data-go="vault">🔖 My saved verses</button>
+  </div>
+</section>
+<section id="read" hidden>
   <div class="row"><select id="ver" aria-label="Bible version"><option value="kjv">KJV</option><option value="bbe">BBE</option></select><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
   <div id="text"></div>
-  <p class="hint">Tap verses to select them, then write about them.</p>
-  <button class="btn" id="toJournal">Journal this passage</button>
+  <p class="hint">Tap verses to select them, then write about them or save them.</p>
+  <div class="row"><button class="btn" id="toJournal">Journal this passage</button><button class="btn alt" id="saveVerse">Save to Vault</button><button class="btn alt" id="askBtn">Ask about this passage</button></div>
+  <div id="vaultForm" class="panel" hidden>
+    <input id="vTag" placeholder="Tag (e.g. Purpose, Prayer, Faith)" aria-label="Tag">
+    <textarea id="vNote" placeholder="Your note (optional)" aria-label="Note"></textarea>
+    <div class="row"><button class="btn" id="vSave">Save verse</button><button class="btn alt" id="vCancel">Cancel</button></div>
+  </div>
+  <div id="askPanel" class="panel" hidden>
+    <p class="tag">Ask a question about the passage above. AI answers are separate from Scripture — weigh them against it.</p>
+    <input id="askQ" placeholder="e.g. What does this mean for me today?" aria-label="Question" maxlength="300">
+    <div class="row"><button class="btn" id="askSend">Ask</button><button class="btn alt" id="askCancel">Cancel</button></div>
+    <p class="meta" id="askMsg"></p>
+    <div id="askAns"></div>
+  </div>
+  <div class="row"><button class="btn alt" id="toggleProg">Book progress</button></div>
+  <label class="chk"><input type="checkbox" id="readChk"> I've read this chapter</label>
+  <div id="progPanel" hidden>
+    <p class="meta" id="progText"></p>
+    <div class="grid" id="progGrid"></div>
+  </div>
   <p class="hint" id="tr"></p>
 </section>
 <section id="study" hidden>
@@ -46,6 +89,10 @@ section[hidden]{display:none}
 <div class="row"><select id="depth" aria-label="Depth"><option value="quick">Quick (5–10 min)</option><option value="standard" selected>Standard (20–30 min)</option><option value="deep">Deep (45+ min)</option></select><button class="btn" id="gen">Start study</button></div>
 <p class="meta" id="stMsg">Creating a new study needs internet. Saved studies work offline.</p><div id="stList"></div></div>
 <div id="stView" class="st" hidden></div></section>
+<section id="vault" hidden>
+  <div id="vaultTags"></div>
+  <div id="vaultList"></div>
+</section>
 <section id="journal" hidden>
   <input id="jTitle" placeholder="Title (e.g. What stood out to me)" aria-label="Title">
   <input id="jRef" placeholder="Passage (e.g. Ephesians 2:10)" aria-label="Passage">
@@ -61,18 +108,25 @@ section[hidden]{display:none}
   <p class="meta" id="status"></p>
 </section>
 </main>
-<nav role="tablist"><button data-t="read" aria-selected="true">Read</button><button data-t="study">Study</button><button data-t="journal">Journal</button><button data-t="backup">Backup</button></nav>
+<nav role="tablist"><button data-t="home" aria-selected="true">Home</button><button data-t="read">Read</button><button data-t="study">Study</button><button data-t="vault">Vault</button><button data-t="journal">Journal</button><button data-t="backup">Backup</button></nav>
 <script>
 const $=id=>document.getElementById(id);
-let bible={books:{}},editing=null,picked=new Set();
+const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+let bible={books:{}},editing=null,picked=new Set(),vaultFilter=null;
 const store={get:()=>{try{return JSON.parse(localStorage.getItem('entries')||'[]')}catch{return[]}},
   set:v=>{try{localStorage.setItem('entries',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full or blocked.')}}};
+const S={get:()=>{try{return JSON.parse(localStorage.getItem('studies')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('studies',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
+const V={get:()=>{try{return JSON.parse(localStorage.getItem('vault')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('vault',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
+const P={get:()=>{try{return JSON.parse(localStorage.getItem('progress')||'{}')}catch{return{}}},set:v=>{try{localStorage.setItem('progress',JSON.stringify(v))}catch{}}};
+const lastRead={get:()=>{try{return JSON.parse(localStorage.getItem('lastRead')||'null')}catch{return null}},set:v=>{try{localStorage.setItem('lastRead',JSON.stringify(v))}catch{}}};
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
-  ['read','study','journal','backup'].forEach(s=>$(s).hidden=s!==b.dataset.t);
+  ['home','read','study','vault','journal','backup'].forEach(s=>$(s).hidden=s!==b.dataset.t);
   if(b.dataset.t==='journal')render();if(b.dataset.t==='study')stList();
+  if(b.dataset.t==='home')renderHome();if(b.dataset.t==='vault')renderVault();
 });
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>document.querySelector('[data-t="'+b.dataset.go+'"]').click());
 
 function load(keep){const v=$('ver').value;try{localStorage.setItem('ver',v)}catch{}
   fetch('bible-'+v+'.json').then(r=>r.json()).then(d=>{bible=d;$('tr').textContent='Translation: '+d.translation+' (public domain)';
@@ -85,7 +139,11 @@ function show(){picked.clear();const t=$('text');t.innerHTML='';
   const vs=bible.books[$('book').value][$('chap').value];
   Object.entries(vs).forEach(([n,tx])=>{const p=document.createElement('p');p.className='v';p.dataset.n=n;
     const s=document.createElement('sup');s.textContent=n;p.append(s,tx);
-    p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel')};t.append(p)});}
+    p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel')};t.append(p)});
+  lastRead.set({ver:$('ver').value,book:$('book').value,chap:$('chap').value});
+  const prog=P.get();$('readChk').checked=(prog[$('book').value]||[]).includes($('chap').value);
+  $('vaultForm').hidden=true;$('askPanel').hidden=true;
+  if(!$('progPanel').hidden)progUpdate();}
 $('book').onchange=()=>fillChaps();$('ver').onchange=()=>load(true);$('chap').onchange=show;
 function refText(){const b=$('book').value,c=$('chap').value;
   const ns=[...picked].map(Number).sort((a,b)=>a-b);if(!ns.length)return b+' '+c;
@@ -93,17 +151,86 @@ function refText(){const b=$('book').value,c=$('chap').value;
   return b+' '+c+':'+r.join(', ');}
 $('toJournal').onclick=()=>{$('jRef').value=refText()+' ('+$('ver').value.toUpperCase()+')';document.querySelector('[data-t=journal]').click();$('jBody').focus();};
 
+function progUpdate(){const book=$('book').value,chap=$('chap').value;
+  const total=Object.keys(bible.books[book]||{}).length;
+  const prog=P.get();const readSet=new Set(prog[book]||[]);
+  $('progText').textContent=book+': '+readSet.size+'/'+total+' chapters read';
+  const grid=$('progGrid');grid.innerHTML='';
+  Object.keys(bible.books[book]||{}).forEach(c=>{const b=document.createElement('button');b.textContent=c;if(readSet.has(c))b.classList.add('done');
+    b.onclick=()=>{$('chap').value=c;show();progUpdate();scrollTo(0,0)};grid.append(b)});}
+$('toggleProg').onclick=()=>{$('progPanel').hidden=!$('progPanel').hidden;if(!$('progPanel').hidden)progUpdate();};
+$('readChk').onchange=()=>{const book=$('book').value,chap=$('chap').value;const prog=P.get();const set=new Set(prog[book]||[]);
+  if($('readChk').checked)set.add(chap);else set.delete(chap);prog[book]=[...set];P.set(prog);if(!$('progPanel').hidden)progUpdate();};
+
+$('saveVerse').onclick=()=>{if(!picked.size){alert('Tap one or more verses first, then Save to Vault.');return}
+  $('vaultForm').hidden=false;$('askPanel').hidden=true;$('vTag').focus();};
+$('vCancel').onclick=()=>{$('vaultForm').hidden=true;$('vTag').value='';$('vNote').value='';};
+$('vSave').onclick=()=>{const ref=refText()+' ('+$('ver').value.toUpperCase()+')';
+  const vs=[...picked].map(Number).sort((a,b)=>a-b);
+  const vt=bible.books[$('book').value][$('chap').value];
+  const text=vs.map(n=>vt[n]).join(' ');
+  const tag=$('vTag').value.trim()||'General';
+  V.set(V.get().concat({id:Date.now().toString(36),date:new Date().toISOString(),ref,text,tag,note:$('vNote').value.trim()}));
+  $('vaultForm').hidden=true;$('vTag').value='';$('vNote').value='';alert('Saved to your Vault.');};
+
+$('askBtn').onclick=()=>{$('askPanel').hidden=false;$('vaultForm').hidden=true;$('askQ').focus();};
+$('askCancel').onclick=()=>{$('askPanel').hidden=true;$('askAns').innerHTML='';$('askMsg').textContent='';$('askQ').value='';};
+$('askSend').onclick=async()=>{const q=$('askQ').value.trim();if(!q)return;
+  const passage=refText()+' ('+$('ver').value.toUpperCase()+')';
+  let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
+  $('askSend').disabled=true;$('askMsg').textContent='Thinking…';$('askAns').innerHTML='';
+  try{const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({passage,question:q})});
+    if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode. Tap Ask to try again.')}
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');
+    localStorage.setItem('pass',pass);$('askMsg').textContent='';
+    const box=h('div','panel');box.append(h('p','tag','AI answer — weigh it against Scripture.'),h('p','',d.answer));
+    if(Array.isArray(d.references)&&d.references.length){box.append(h('p','tag','See also:'));
+      const wrap=h('div');d.references.forEach(rf=>{const c=h('span','chip',rf);
+        c.onclick=()=>{const m=String(rf).match(/^(.+?)\s+(\d+):/);if(m&&bible.books[m[1].trim()]){$('book').value=m[1].trim();fillChaps(m[2]);$('askPanel').hidden=true;scrollTo(0,0)}};
+        wrap.append(c)});box.append(wrap)}
+    $('askAns').innerHTML='';$('askAns').append(box);
+  }catch(e){$('askMsg').textContent=navigator.onLine?e.message:'You are offline. Connect to the internet to ask a question.'}
+  $('askSend').disabled=false;};
+
+function renderHome(){$('stStudies').textContent=S.get().length;$('stVault').textContent=V.get().length;$('stJournal').textContent=store.get().length;
+  const box=$('continueBox');box.innerHTML='';
+  const lr=lastRead.get();
+  if(lr){const p=h('div','panel');p.append(h('div','meta','Continue reading'),h('strong','',lr.book+' '+lr.chap));
+    const btn=h('button','btn alt','Go');btn.style.marginTop='8px';
+    btn.onclick=()=>{document.querySelector('[data-t=read]').click();if($('ver').value!==lr.ver){$('ver').value=lr.ver;load(false);setTimeout(()=>{$('book').value=lr.book;fillChaps(lr.chap)},400)}else{$('book').value=lr.book;fillChaps(lr.chap)}};
+    p.append(document.createElement('br'),btn);box.append(p)}
+  const ls=S.get().sort((a,b)=>b.date.localeCompare(a.date))[0];
+  if(ls){const p=h('div','panel');p.append(h('div','meta','Last study'),h('strong','',ls.study.title));
+    const btn=h('button','btn alt','Open');btn.style.marginTop='8px';
+    btn.onclick=()=>{document.querySelector('[data-t=study]').click();openStudy(ls.id)};
+    p.append(document.createElement('br'),btn);box.append(p)}
+  if(!lr&&!ls)box.innerHTML='<p class="hint">Nothing yet — start below.</p>';}
+
+function renderVault(){const L=V.get().sort((a,b)=>b.date.localeCompare(a.date));
+  const tags=[...new Set(L.map(x=>x.tag))].sort();
+  const tbox=$('vaultTags');tbox.innerHTML='';
+  if(tags.length){const all=h('span','chip'+(!vaultFilter?' on':''),'All');all.onclick=()=>{vaultFilter=null;renderVault()};tbox.append(all);
+    tags.forEach(t=>{const c=h('span','chip'+(vaultFilter===t?' on':''),t);c.onclick=()=>{vaultFilter=t;renderVault()};tbox.append(c)})}
+  const list=vaultFilter?L.filter(x=>x.tag===vaultFilter):L;
+  const box=$('vaultList');box.innerHTML='';
+  if(!list.length){box.innerHTML='<p class="hint">No saved verses yet. Go to Read, tap a verse, then tap Save to Vault.</p>';return}
+  list.forEach(x=>{const d=h('div','entry');d.append(h('h3','',x.ref),h('p','',x.text));
+    if(x.note)d.append(h('p','meta','Note: '+x.note));
+    d.append(h('div','meta',x.tag+' · '+new Date(x.date).toLocaleDateString()));
+    const del=h('button','btn del','Delete');del.onclick=()=>{if(confirm('Delete this saved verse?')){V.set(V.get().filter(y=>y.id!==x.id));renderVault()}};
+    d.append(del);box.append(d)});}
+
 function render(){const L=store.get().sort((a,b)=>b.date.localeCompare(a.date));$('list').innerHTML='';
   if(!L.length){$('list').innerHTML='<p class="hint">No entries yet. Read a passage and tap "Journal this passage".</p>';return}
   L.forEach(e=>{const d=document.createElement('div');d.className='entry';
-    const h=document.createElement('h3');h.textContent=e.title||'Untitled';
+    const hh=document.createElement('h3');hh.textContent=e.title||'Untitled';
     const m=document.createElement('div');m.className='meta';m.textContent=(e.ref?e.ref+' · ':'')+new Date(e.date).toLocaleDateString();
     const p=document.createElement('p');p.textContent=e.body;
     const ed=document.createElement('button');ed.className='btn alt';ed.textContent='Edit';
     ed.onclick=()=>{editing=e.id;$('jTitle').value=e.title;$('jRef').value=e.ref;$('jBody').value=e.body;$('save').textContent='Update entry';scrollTo(0,0)};
     const dl=document.createElement('button');dl.className='btn del';dl.textContent='Delete';
     dl.onclick=()=>{if(confirm('Delete this entry?')){store.set(store.get().filter(x=>x.id!==e.id));render()}};
-    d.append(h,m,p,ed,dl);$('list').append(d)});}
+    d.append(hh,m,p,ed,dl);$('list').append(d)});}
 function clearForm(){editing=null;['jTitle','jRef','jBody'].forEach(i=>$(i).value='');$('save').textContent='Save entry';}
 $('clear').onclick=clearForm;
 $('save').onclick=()=>{const body=$('jBody').value.trim();if(!body&&!$('jTitle').value.trim())return;
@@ -111,9 +238,6 @@ $('save').onclick=()=>{const body=$('jBody').value.trim();if(!body&&!$('jTitle')
   if(editing)L=L.map(x=>x.id===editing?{...x,...o}:x);else L.push({id:Date.now().toString(36),date:new Date().toISOString(),...o});
   store.set(L);clearForm();render();};
 
-
-const S={get:()=>{try{return JSON.parse(localStorage.getItem('studies')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('studies',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
-const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 function parseRef(r){const m=String(r).match(/^(.+?)\s+(\d+):(\d+)(?:\s*[-–]\s*(\d+))?$/);if(!m)return null;
   const ch=bible.books[m[1].trim()]&&bible.books[m[1].trim()][m[2]];if(!ch)return null;const a=+m[3],z=+(m[4]||m[3]),vs=[];
   for(let i=a;i<=z;i++){if(!ch[i])return null;vs.push([i,ch[i]])}return vs.length?vs:null;}
@@ -142,9 +266,7 @@ function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x
       wrap.append(t,saved);v.append(wrap)})});
   v.append(h('h3','','5. Prayer'),h('p','tag','A suggested prayer. Change it into your own words.'),h('p','',s.prayer));
   const jbtn=h('button','btn','Save reflections to Journal');
-  jbtn.onclick=()=>{
-    const cur=S.get().find(z=>z.id===id)||x;
-    const labels={observation:'What does the text say?',interpretation:'What does it mean?',application:'What will you do?'};
+  jbtn.onclick=()=>{const cur=S.get().find(z=>z.id===id)||x;
     let body='';
     ['observation','interpretation','application'].forEach(k=>{(s.questions[k]||[]).forEach((q,i)=>{const a=(cur.answers[k+i]||'').trim();
       if(a)body+=(body?'\n\n':'')+q+'\n'+a})});
@@ -163,16 +285,21 @@ $('gen').onclick=async()=>{const topic=$('topic').value.trim();if(!topic)return;
     S.set(S.get().concat(st));$('topic').value='';$('stMsg').textContent='';openStudy(st.id);
   }catch(e){$('stMsg').textContent=navigator.onLine?e.message:'You are offline. Connect to the internet to create a new study.'}
   $('gen').disabled=false;};
-$('exp').onclick=()=>{const b=new Blob([JSON.stringify({entries:store.get(),studies:S.get()},null,1)],{type:'application/json'});
+
+$('exp').onclick=()=>{const b=new Blob([JSON.stringify({entries:store.get(),studies:S.get(),vault:V.get(),progress:P.get()},null,1)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='bible-journal-'+new Date().toISOString().slice(0,10)+'.json';a.click();
   $('status').textContent='Backup downloaded. Keep it somewhere safe.';};
 $('impBtn').onclick=()=>$('imp').click();
 $('imp').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!Array.isArray(d.entries))throw 0;
   const cur=store.get(),ids=new Set(cur.map(x=>x.id));const add=d.entries.filter(x=>x.id&&!ids.has(x.id));
-  store.set(cur.concat(add));const sc=S.get(),si=new Set(sc.map(x=>x.id)),sa=(d.studies||[]).filter(x=>x.id&&!si.has(x.id));S.set(sc.concat(sa));$('status').textContent='Restored '+add.length+' entries and '+sa.length+' studies.';}
+  store.set(cur.concat(add));
+  const sc=S.get(),si=new Set(sc.map(x=>x.id)),sa=(d.studies||[]).filter(x=>x.id&&!si.has(x.id));S.set(sc.concat(sa));
+  const vc=V.get(),vi=new Set(vc.map(x=>x.id)),va=(d.vault||[]).filter(x=>x.id&&!vi.has(x.id));V.set(vc.concat(va));
+  if(d.progress)P.set(Object.assign(P.get(),d.progress));
+  $('status').textContent='Restored '+add.length+' entries, '+sa.length+' studies, '+va.length+' saved verses.';}
   catch{$('status').textContent='That file is not a valid backup.'}};
 
 try{const sv=localStorage.getItem('ver');if(sv)$('ver').value=sv}catch{}
-load(false);
+load(false);renderHome();
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script></body></html>
