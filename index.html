@@ -58,6 +58,7 @@ section[hidden]{display:none}
     <button class="btn alt" data-go="study">🔎 Explore a topic</button>
     <button class="btn alt" data-go="vault">🔖 My saved verses</button>
   </div>
+  <p class="hint" style="margin-top:20px"><a href="#" id="backupLink" style="color:var(--mute)">⚙️ Backup &amp; restore your data</a></p>
 </section>
 <section id="read" hidden>
   <div class="row"><select id="ver" aria-label="Bible version"><option value="kjv">KJV</option><option value="bbe">BBE</option></select><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
@@ -101,6 +102,7 @@ section[hidden]{display:none}
   <div id="list"></div>
 </section>
 <section id="backup" hidden>
+  <button class="btn alt" id="backBtn" style="margin-bottom:16px">← Back to Home</button>
   <p>Your entries live only in this browser. Clearing browser data erases them, so download a backup regularly.</p>
   <div class="row"><button class="btn" id="exp">Download backup</button>
   <button class="btn alt" id="impBtn">Restore from backup</button></div>
@@ -108,7 +110,7 @@ section[hidden]{display:none}
   <p class="meta" id="status"></p>
 </section>
 </main>
-<nav role="tablist"><button data-t="home" aria-selected="true">Home</button><button data-t="read">Read</button><button data-t="study">Study</button><button data-t="vault">Vault</button><button data-t="journal">Journal</button><button data-t="backup">Backup</button></nav>
+<nav role="tablist"><button data-t="home" aria-selected="true">Home</button><button data-t="read">Read</button><button data-t="study">Study</button><button data-t="vault">Vault</button><button data-t="journal">Journal</button></nav>
 <script>
 const $=id=>document.getElementById(id);
 const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
@@ -122,11 +124,14 @@ const lastRead={get:()=>{try{return JSON.parse(localStorage.getItem('lastRead')|
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
-  ['home','read','study','vault','journal','backup'].forEach(s=>$(s).hidden=s!==b.dataset.t);
+  ['home','read','study','vault','journal'].forEach(s=>$(s).hidden=s!==b.dataset.t);
+  $('backup').hidden=true;
   if(b.dataset.t==='journal')render();if(b.dataset.t==='study')stList();
   if(b.dataset.t==='home')renderHome();if(b.dataset.t==='vault')renderVault();
 });
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>document.querySelector('[data-t="'+b.dataset.go+'"]').click());
+$('backupLink').onclick=e=>{e.preventDefault();['home','read','study','vault','journal'].forEach(s=>$(s).hidden=true);$('backup').hidden=false;};
+$('backBtn').onclick=()=>document.querySelector('[data-t=home]').click();
 
 function load(keep){const v=$('ver').value;try{localStorage.setItem('ver',v)}catch{}
   fetch('bible-'+v+'.json').then(r=>r.json()).then(d=>{bible=d;$('tr').textContent='Translation: '+d.translation+' (public domain)';
