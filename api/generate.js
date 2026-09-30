@@ -29,14 +29,22 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
   if (!process.env.APP_PASSCODE || req.headers['x-passcode'] !== process.env.APP_PASSCODE)
     return res.status(401).json({ error: 'Wrong passcode.' });
-  const { topic, depth, studyType, audience, level } = req.body || {};
+  const { topic, depth, studyType, audience, level, seriesName, weekIndex, weekTotal, priorWeeks } = req.body || {};
   if (typeof topic !== 'string' || !topic.trim() || topic.length > 200)
     return res.status(400).json({ error: 'Please enter a topic (up to 200 characters).' });
   const d = ['quick', 'standard', 'deep'].includes(depth) ? depth : 'standard';
   const st = TYPE_GUIDE[studyType] ? studyType : 'personal';
   const lv = LEVEL_GUIDE[level] ? level : 'intermediate';
   const aud = typeof audience === 'string' && audience.trim() ? audience.trim() : 'general';
-  const userMsg = `Topic: ${topic.trim()}\nDepth (length): ${d}\nStudy type: ${st} — ${TYPE_GUIDE[st]}\nAudience: ${aud}\nLevel: ${lv} — ${LEVEL_GUIDE[lv]}`;
+  let userMsg = `Topic: ${topic.trim()}\nDepth (length): ${d}\nStudy type: ${st} — ${TYPE_GUIDE[st]}\nAudience: ${aud}\nLevel: ${lv} — ${LEVEL_GUIDE[lv]}`;
+  if (typeof seriesName === 'string' && seriesName.trim()) {
+    userMsg += `\n\nThis study is week ${weekIndex} of ${weekTotal} in a multi-week series called "${seriesName.trim()}". `;
+    userMsg += `Write it so it clearly belongs to that series and this week's specific angle ("${topic.trim()}"), without repeating what earlier weeks already covered.`;
+    if (Array.isArray(priorWeeks) && priorWeeks.length) {
+      userMsg += `\nEarlier weeks in this series (do not reuse their passages or repeat their main points):\n`;
+      priorWeeks.slice(-6).forEach(w => { userMsg += `- Week "${w.label}": "${w.title}" — ${w.theme}\n`; });
+    }
+  }
 
   const started = Date.now();
   try {
