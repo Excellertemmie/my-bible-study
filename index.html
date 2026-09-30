@@ -73,7 +73,7 @@ section[hidden]{display:none}
   <div class="row"><select id="ver" aria-label="Bible version"><option value="kjv">KJV</option><option value="bbe">BBE</option><option value="asv">ASV</option></select><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
   <div id="text"></div>
   <p class="hint">Tap verses to select them, then write about them or save them.</p>
-  <div class="row"><button class="btn" id="toJournal">Journal this passage</button><button class="btn alt" id="saveVerse">Save to Vault</button><button class="btn alt" id="askBtn">Ask about this passage</button></div>
+  <div class="row"><button class="btn" id="toJournal">Journal this passage</button><button class="btn alt" id="saveVerse">Save to Vault</button><button class="btn alt" id="askBtn">Ask about this passage</button><button class="btn alt" id="snapBtn">📸 Snapshot</button></div>
   <div id="vaultForm" class="panel" hidden>
     <input id="vTag" placeholder="Tag (e.g. Purpose, Prayer, Faith)" aria-label="Tag">
     <textarea id="vNote" placeholder="Your note (optional)" aria-label="Note"></textarea>
@@ -85,6 +85,11 @@ section[hidden]{display:none}
     <div class="row"><button class="btn" id="askSend">Ask</button><button class="btn alt" id="askCancel">Cancel</button></div>
     <p class="meta" id="askMsg"></p>
     <div id="askAns"></div>
+  </div>
+  <div id="snapPanel" class="panel" hidden>
+    <canvas id="snapCanvas" width="1080" height="1920" style="width:100%;max-width:320px;display:block;margin:0 auto 12px;border-radius:10px;border:1px solid var(--line)"></canvas>
+    <div class="row" id="snapStyles" style="justify-content:center"></div>
+    <div class="row" style="justify-content:center"><button class="btn" id="snapDownload">Download</button><button class="btn alt" id="snapShare">Share</button><button class="btn alt" id="snapCancel">Cancel</button></div>
   </div>
   <div class="row"><button class="btn alt" id="toggleProg">Book progress</button></div>
   <label class="chk"><input type="checkbox" id="readChk"> I've read this chapter</label>
@@ -213,7 +218,7 @@ function show(){picked.clear();const t=$('text');t.innerHTML='';
     p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel')};t.append(p)});
   lastRead.set({ver:$('ver').value,book:$('book').value,chap:$('chap').value});
   const prog=P.get();$('readChk').checked=(prog[$('book').value]||[]).includes($('chap').value);
-  $('vaultForm').hidden=true;$('askPanel').hidden=true;$('chapPanel').hidden=true;
+  $('vaultForm').hidden=true;$('askPanel').hidden=true;$('chapPanel').hidden=true;$('snapPanel').hidden=true;
   if(!$('progPanel').hidden)progUpdate();}
 $('book').onchange=()=>fillChaps();$('ver').onchange=()=>load(true);$('chap').onchange=show;
 function refText(){const b=$('book').value,c=$('chap').value;
@@ -289,6 +294,44 @@ $('askSend').onclick=async()=>{const q=$('askQ').value.trim();if(!q)return;
   }catch(e){$('askMsg').textContent=navigator.onLine?e.message:'You are offline. Connect to the internet to ask a question.'}
   $('askSend').disabled=false;};
 
+const SNAP_PALETTES=[
+  {name:'Deep Green',bg:'#16302b',bg2:'#0d1f1b',ink:'#f6f3ec',gold:'#d9a24b',mark:'rgba(217,162,75,.14)'},
+  {name:'Warm Cream',bg:'#f2ead9',bg2:'#e7dbc0',ink:'#2a231a',gold:'#a8672a',mark:'rgba(168,103,42,.12)'},
+  {name:'Midnight',bg:'#0b0f1f',bg2:'#050710',ink:'#eef0f8',gold:'#c9a3e0',mark:'rgba(201,163,224,.14)'}
+];
+let snapPalette=0,snapRef='',snapText='';
+function wrapLines(ctx,text,maxWidth){const words=text.split(/\s+/),lines=[];let line='';
+  words.forEach(w=>{const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=w}else line=test});
+  if(line)lines.push(line);return lines;}
+function drawSnapshot(){const c=$('snapCanvas'),ctx=c.getContext('2d'),W=c.width,H=c.height,p=SNAP_PALETTES[snapPalette];
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,p.bg);g.addColorStop(1,p.bg2);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=p.gold;ctx.globalAlpha=.55;ctx.lineWidth=2;ctx.strokeRect(64,64,W-128,H-128);ctx.globalAlpha=1;
+  ctx.fillStyle=p.mark;ctx.font='italic 340px Georgia, serif';ctx.textAlign='center';ctx.fillText('"',W/2,430);
+  ctx.fillStyle=p.gold;ctx.font='600 30px Georgia, serif';ctx.textAlign='center';
+  ctx.save();ctx.translate(W/2,180);ctx.letterSpacing='6px';ctx.fillText('SCRIPTURE',0,0);ctx.restore();
+  ctx.strokeStyle=p.gold;ctx.beginPath();ctx.moveTo(W/2-70,220);ctx.lineTo(W/2+70,220);ctx.stroke();
+  ctx.fillStyle=p.ink;ctx.font='64px Georgia, serif';ctx.textAlign='center';
+  const maxW=W-220,lineH=88;const lines=wrapLines(ctx,snapText,maxW);
+  const startY=H/2-((lines.length-1)*lineH)/2-40;
+  lines.forEach((ln,i)=>ctx.fillText(ln,W/2,startY+i*lineH));
+  const refY=startY+lines.length*lineH+50;
+  ctx.strokeStyle=p.gold;ctx.beginPath();ctx.moveTo(W/2-60,refY-40);ctx.lineTo(W/2+60,refY-40);ctx.stroke();
+  ctx.fillStyle=p.gold;ctx.font='600 40px Georgia, serif';ctx.fillText(snapRef,W/2,refY+16);
+  ctx.fillStyle=p.gold;ctx.globalAlpha=.6;ctx.font='28px Georgia, serif';ctx.fillText('My Bible Study',W/2,H-110);ctx.globalAlpha=1;}
+function openSnapshot(ref,text){snapRef=ref;snapText=text;$('vaultForm').hidden=true;$('askPanel').hidden=true;$('snapPanel').hidden=false;
+  const sw=$('snapStyles');sw.innerHTML='';SNAP_PALETTES.forEach((p,i)=>{const b=h('span','chip'+(i===snapPalette?' on':''),p.name);
+    b.onclick=()=>{snapPalette=i;drawSnapshot();sw.querySelectorAll('.chip').forEach((c,j)=>c.classList.toggle('on',j===i))};sw.append(b)});
+  drawSnapshot();scrollTo(0,0)}
+$('snapBtn').onclick=()=>{if(!picked.size){alert('Tap one or more verses first, then tap Snapshot.');return}
+  openSnapshot(refText(),[...picked].map(Number).sort((a,b)=>a-b).map(n=>bible.books[$('book').value][$('chap').value][n]).join(' '))};
+$('snapCancel').onclick=()=>{$('snapPanel').hidden=true;};
+$('snapDownload').onclick=()=>{$('snapCanvas').toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='verse-snapshot.png';a.click()},'image/png')};
+$('snapShare').onclick=()=>{$('snapCanvas').toBlob(async b=>{const file=new File([b],'verse-snapshot.png',{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:snapRef,text:snapRef})}catch{}}
+  else{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='verse-snapshot.png';a.click();
+    alert('Sharing images isn\'t available on this device — downloaded it instead. You can attach it to WhatsApp from your photos.')}
+},'image/png')};
+
 function renderHome(){$('stStudies').textContent=S.get().length;$('stVault').textContent=V.get().length;$('stJournal').textContent=store.get().length;
   const box=$('continueBox');box.innerHTML='';
   const lr=lastRead.get();
@@ -314,8 +357,9 @@ function renderVault(){const L=V.get().sort((a,b)=>b.date.localeCompare(a.date))
   list.forEach(x=>{const d=h('div','entry');d.append(h('h3','',x.ref),h('p','',x.text));
     if(x.note)d.append(h('p','meta','Note: '+x.note));
     d.append(h('div','meta',x.tag+' · '+new Date(x.date).toLocaleDateString()));
+    const snap=h('button','btn alt','📸 Snapshot');snap.onclick=()=>{document.querySelector('[data-t=read]').click();openSnapshot(x.ref,x.text)};
     const del=h('button','btn del','Delete');del.onclick=()=>{if(confirm('Delete this saved verse?')){V.set(V.get().filter(y=>y.id!==x.id));renderVault()}};
-    d.append(del);box.append(d)});}
+    d.append(snap,del);box.append(d)});}
 
 function render(){const L=store.get().sort((a,b)=>b.date.localeCompare(a.date));$('list').innerHTML='';
   if(!L.length){$('list').innerHTML='<p class="hint">No entries yet. Read a passage and tap "Journal this passage".</p>';return}
