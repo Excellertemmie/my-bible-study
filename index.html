@@ -182,6 +182,19 @@ const store={get:()=>{try{return JSON.parse(localStorage.getItem('entries')||'[]
   set:v=>{try{localStorage.setItem('entries',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full or blocked.')}}};
 const S={get:()=>{try{return JSON.parse(localStorage.getItem('studies')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('studies',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
 const V={get:()=>{try{return JSON.parse(localStorage.getItem('vault')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('vault',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
+function vaultSaveUI(ref,text,anchorBtn){
+  if(anchorBtn._panel){anchorBtn._panel.remove();delete anchorBtn._panel;return}
+  const panel=h('div','panel noprint');
+  const tagInput=document.createElement('input');tagInput.placeholder='Tag (e.g. Purpose, Prayer, Faith)';tagInput.setAttribute('aria-label','Tag');
+  const noteInput=document.createElement('textarea');noteInput.placeholder='Your note (optional)';noteInput.setAttribute('aria-label','Note');
+  const saveBtn=h('button','btn','Save verse');const cancelBtn=h('button','btn alt','Cancel');
+  const row=h('div','row');row.append(saveBtn,cancelBtn);
+  panel.append(tagInput,noteInput,row);
+  saveBtn.onclick=()=>{const tag=tagInput.value.trim()||'General';
+    V.set(V.get().concat({id:Date.now().toString(36),date:new Date().toISOString(),ref,text,tag,note:noteInput.value.trim()}));
+    panel.remove();delete anchorBtn._panel;anchorBtn.textContent='Saved to Vault ✓';setTimeout(()=>anchorBtn.textContent='📌 Save to Vault',1500);};
+  cancelBtn.onclick=()=>{panel.remove();delete anchorBtn._panel;};
+  anchorBtn.after(panel);anchorBtn._panel=panel;tagInput.focus();}
 const P={get:()=>{try{return JSON.parse(localStorage.getItem('progress')||'{}')}catch{return{}}},set:v=>{try{localStorage.setItem('progress',JSON.stringify(v))}catch{}}};
 const lastRead={get:()=>{try{return JSON.parse(localStorage.getItem('lastRead')||'null')}catch{return null}},set:v=>{try{localStorage.setItem('lastRead',JSON.stringify(v))}catch{}}};
 
@@ -436,7 +449,10 @@ function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x
   exRow.append(cpBtn,prBtn,shBtn);v.append(exRow);
   v.append(h('h3','','1. Read the passages first'),h('p','tag','Verse text comes from the Bible in this app, not from the AI. Currently showing '+(bible.translation||'')+'.'));
   s.passages.forEach(r=>{const d=h('div','ref');d.append(h('strong','',r));const vs=parseRef(r);
-    if(vs)vs.forEach(([n,t])=>{const p=h('p','v');const u=h('sup','',n);p.append(u,t);d.append(p)});
+    if(vs){vs.forEach(([n,t])=>{const p=h('p','v');const u=h('sup','',n);p.append(u,t);d.append(p)});
+      const sb=h('button','btn alt noprint','📌 Save to Vault');sb.style.marginTop='6px';
+      sb.onclick=()=>vaultSaveUI(r+' ('+(bible.translation||'')+')',vs.map(([n,t])=>t).join(' '),sb);
+      d.append(sb);}
     else d.append(h('p','tag warn','Could not verify this reference in the Bible text. Look it up yourself before relying on it.'));v.append(d)});
   v.append(h('h3','','2. Background'),h('p','tag','Written by AI. Check it against the passage.'),h('p','',s.context));
   if(s.openingActivity)v.append(h('h3','','Opening activity'),h('p','',s.openingActivity));
