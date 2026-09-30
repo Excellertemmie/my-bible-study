@@ -8,10 +8,11 @@
 <link rel="icon" href="icon.svg">
 <style>
 :root{--bg:#f2f0ea;--ink:#1d2623;--mute:#5b6763;--deep:#16302b;--gold:#c9862b;--line:#d5d2c8;--card:#fbfaf6}
-@media(prefers-color-scheme:dark){:root{--bg:#101a18;--ink:#e6e8e2;--mute:#9aa8a3;--deep:#0b1211;--line:#2a3a36;--card:#16231f}}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101a18;--ink:#e6e8e2;--mute:#9aa8a3;--deep:#0b1211;--line:#2a3a36;--card:#16231f}}
+:root[data-theme="dark"]{--bg:#101a18;--ink:#e6e8e2;--mute:#9aa8a3;--deep:#0b1211;--line:#2a3a36;--card:#16231f}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.7 "Iowan Old Style",Palatino,Georgia,serif;padding-bottom:70px}
-header{background:var(--deep);color:#f2f0ea;padding:calc(14px + env(safe-area-inset-top)) 20px 14px}
+header{background:var(--deep);color:#f2f0ea;padding:calc(14px + env(safe-area-inset-top)) 20px 14px;position:relative}
 h1{margin:0;font-size:1.25rem;font-weight:600}
 main{max-width:680px;margin:0 auto;padding:20px}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--deep);padding-bottom:env(safe-area-inset-bottom)}
@@ -34,7 +35,7 @@ input,textarea{width:100%;margin-bottom:10px}textarea{min-height:100px}
 .stat{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
 .stat div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px;min-width:96px;font:.85rem system-ui,sans-serif}
 .stat b{display:block;font-size:1.4rem;color:var(--gold);font-family:inherit}
-.chip{display:inline-block;font:.8rem system-ui,sans-serif;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:4px 12px;margin:2px 6px 2px 0;cursor:pointer}
+.chip{display:inline-block;font:.8rem system-ui,sans-serif;background:rgba(127,127,127,.16);border:1px solid var(--line);border-radius:20px;padding:4px 12px;margin:2px 6px 2px 0;cursor:pointer;color:var(--ink)}
 .chip.on{background:var(--gold);border-color:var(--gold);color:#1d2623}
 .grid{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 .grid button{width:38px;height:38px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:.8rem system-ui,sans-serif;cursor:pointer}
@@ -51,7 +52,7 @@ section[hidden]{display:none}
   textarea{border:none;padding:0;min-height:auto}
 }
 </style></head><body>
-<header><h1>My Bible Study</h1></header>
+<header><h1>My Bible Study</h1><button id="themeBtn" style="position:absolute;top:calc(14px + env(safe-area-inset-top));right:20px;background:none;border:1px solid #f2f0ea55;color:#f2f0ea;border-radius:6px;padding:6px 10px;font:.85rem system-ui,sans-serif;cursor:pointer">🌓</button></header>
 <main>
 <section id="home">
   <div class="stat">
@@ -64,7 +65,7 @@ section[hidden]{display:none}
   <div class="row">
     <button class="btn alt" data-go="read">📖 Read Scripture</button>
     <button class="btn alt" data-go="study">🔎 Explore a topic</button>
-    <button class="btn alt" data-go="vault">🔖 My saved verses</button>
+    <button class="btn alt" id="goVault">🔖 My saved verses</button>
   </div>
   <p class="hint" style="margin-top:20px"><a href="#" id="backupLink" style="color:var(--mute)">⚙️ Backup &amp; restore your data</a></p>
 </section>
@@ -98,6 +99,11 @@ section[hidden]{display:none}
 <section id="study" hidden>
 <div class="row"><button class="btn alt" id="modeStudy">📖 Study</button><button class="btn alt" id="modeQuiz">🧠 Quiz</button></div>
 <div id="stForm"><input id="topic" maxlength="200" placeholder="What do you want to explore? (e.g. God's purpose for my life)" aria-label="Topic">
+<label class="chk"><input type="checkbox" id="seriesChk"> This is a multi-week series</label>
+<div id="seriesFields" hidden>
+  <textarea id="seriesWeeks" placeholder="One topic per week, e.g.:&#10;Faith in God&#10;Walking by faith&#10;Walking by faith (part 2)&#10;The purpose of having faith in God" aria-label="Week topics, one per line"></textarea>
+  <p class="hint">Each line becomes one week. Every week gets its own passages and content, and later weeks avoid repeating earlier ones.</p>
+</div>
 <div class="row"><select id="stype" aria-label="Study type">
   <option value="personal">Personal Bible Study</option>
   <option value="youth">Youth Bible Study</option>
@@ -130,16 +136,19 @@ section[hidden]{display:none}
 <div id="stView" class="st" hidden></div>
 <div id="quizView" class="st" hidden></div>
 </section>
-<section id="vault" hidden>
-  <div id="vaultTags"></div>
-  <div id="vaultList"></div>
-</section>
-<section id="journal" hidden>
-  <input id="jTitle" placeholder="Title (e.g. What stood out to me)" aria-label="Title">
-  <input id="jRef" placeholder="Passage (e.g. Ephesians 2:10)" aria-label="Passage">
-  <textarea id="jBody" placeholder="What is God teaching me? What will I do about it?" aria-label="Reflection"></textarea>
-  <div class="row"><button class="btn" id="save">Save entry</button><button class="btn alt" id="clear">Clear</button></div>
-  <div id="list"></div>
+<section id="notes" hidden>
+  <div class="row"><button class="btn alt" id="modeVault">🔖 Vault</button><button class="btn alt" id="modeJournal">📝 Journal</button></div>
+  <div id="vaultView">
+    <div id="vaultTags"></div>
+    <div id="vaultList"></div>
+  </div>
+  <div id="journalView" hidden>
+    <input id="jTitle" placeholder="Title (e.g. What stood out to me)" aria-label="Title">
+    <input id="jRef" placeholder="Passage (e.g. Ephesians 2:10)" aria-label="Passage">
+    <textarea id="jBody" placeholder="What is God teaching me? What will I do about it?" aria-label="Reflection"></textarea>
+    <div class="row"><button class="btn" id="save">Save entry</button><button class="btn alt" id="clear">Clear</button></div>
+    <div id="list"></div>
+  </div>
 </section>
 <section id="backup" hidden>
   <button class="btn alt" id="backBtn" style="margin-bottom:16px">← Back to Home</button>
@@ -150,7 +159,7 @@ section[hidden]{display:none}
   <p class="meta" id="status"></p>
 </section>
 </main>
-<nav role="tablist"><button data-t="home" aria-selected="true">Home</button><button data-t="read">Read</button><button data-t="study">Study</button><button data-t="vault">Vault</button><button data-t="journal">Journal</button></nav>
+<nav role="tablist"><button data-t="home" aria-selected="true">Home</button><button data-t="read">Read</button><button data-t="study">Study</button><button data-t="notes">Notes</button></nav>
 <script>
 const $=id=>document.getElementById(id);
 const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
@@ -162,15 +171,23 @@ const V={get:()=>{try{return JSON.parse(localStorage.getItem('vault')||'[]')}cat
 const P={get:()=>{try{return JSON.parse(localStorage.getItem('progress')||'{}')}catch{return{}}},set:v=>{try{localStorage.setItem('progress',JSON.stringify(v))}catch{}}};
 const lastRead={get:()=>{try{return JSON.parse(localStorage.getItem('lastRead')||'null')}catch{return null}},set:v=>{try{localStorage.setItem('lastRead',JSON.stringify(v))}catch{}}};
 
+let notesMode=false;
+function setNotesMode(vault){notesMode=vault;
+  $('modeVault').classList.toggle('on',vault);$('modeJournal').classList.toggle('on',!vault);
+  $('vaultView').hidden=!vault;$('journalView').hidden=vault;
+  if(vault)renderVault();else render();}
+
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
-  ['home','read','study','vault','journal'].forEach(s=>$(s).hidden=s!==b.dataset.t);
+  ['home','read','study','notes'].forEach(s=>$(s).hidden=s!==b.dataset.t);
   $('backup').hidden=true;
-  if(b.dataset.t==='journal')render();if(b.dataset.t==='study'){if(quizMode)quizList();else stList()}
-  if(b.dataset.t==='home')renderHome();if(b.dataset.t==='vault')renderVault();
+  if(b.dataset.t==='study'){if(quizMode)quizList();else stList()}
+  if(b.dataset.t==='home')renderHome();if(b.dataset.t==='notes')setNotesMode(notesMode);
 });
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>document.querySelector('[data-t="'+b.dataset.go+'"]').click());
-$('backupLink').onclick=e=>{e.preventDefault();['home','read','study','vault','journal'].forEach(s=>$(s).hidden=true);$('backup').hidden=false;};
+$('goVault').onclick=()=>{document.querySelector('[data-t=notes]').click();setNotesMode(true);};
+$('modeVault').onclick=()=>setNotesMode(true);$('modeJournal').onclick=()=>setNotesMode(false);
+$('backupLink').onclick=e=>{e.preventDefault();['home','read','study','notes'].forEach(s=>$(s).hidden=true);$('backup').hidden=false;};
 $('backBtn').onclick=()=>document.querySelector('[data-t=home]').click();
 
 function load(keep){const v=$('ver').value;try{localStorage.setItem('ver',v)}catch{}
@@ -194,7 +211,7 @@ function refText(){const b=$('book').value,c=$('chap').value;
   const ns=[...picked].map(Number).sort((a,b)=>a-b);if(!ns.length)return b+' '+c;
   const r=[];let s=ns[0],p=s;for(const n of ns.slice(1).concat([null])){if(n===p+1){p=n;continue}r.push(s===p?s:s+'–'+p);s=p=n}
   return b+' '+c+':'+r.join(', ');}
-$('toJournal').onclick=()=>{$('jRef').value=refText()+' ('+$('ver').value.toUpperCase()+')';document.querySelector('[data-t=journal]').click();$('jBody').focus();};
+$('toJournal').onclick=()=>{$('jRef').value=refText()+' ('+$('ver').value.toUpperCase()+')';document.querySelector('[data-t=notes]').click();setNotesMode(false);$('jBody').focus();};
 
 function progUpdate(){const book=$('book').value,chap=$('chap').value;
   const total=Object.keys(bible.books[book]||{}).length;
@@ -214,9 +231,10 @@ function renderChapPanel(notes){const p=$('chapPanel');p.innerHTML='';
   if(notes.themes&&notes.themes.length){p.append(h('strong','','Themes'));const w=h('div');
     notes.themes.forEach(t=>w.append(h('span','badge',t)));p.append(w)}
   if(notes.keyVerses&&notes.keyVerses.length){p.append(h('strong','','Key verses'));
-    notes.keyVerses.forEach(kv=>{const b=h('button','chip',kv.ref);
+    notes.keyVerses.forEach(kv=>{const row=h('div');row.style.margin='8px 0';
+      const b=h('button','chip',kv.ref);
       b.onclick=()=>{const m=String(kv.ref).match(/^(.+?)\s+(\d+):/);if(m&&bible.books[m[1].trim()]){$('book').value=m[1].trim();fillChaps(m[2]);scrollTo(0,0)}};
-      p.append(b);p.append(h('span','meta',' '+kv.note))})}
+      row.append(b,h('span','meta',' '+kv.note));p.append(row)})}
   if(notes.questions&&notes.questions.length){p.append(h('strong','','Questions to consider'));
     notes.questions.forEach(q=>p.append(h('p','',q)))}
   const rg=h('button','btn alt','Regenerate');rg.style.marginTop='10px';rg.onclick=()=>fetchChapNotes(true);p.append(rg);}
@@ -311,11 +329,24 @@ $('save').onclick=()=>{const body=$('jBody').value.trim();if(!body&&!$('jTitle')
 function parseRef(r){const m=String(r).match(/^(.+?)\s+(\d+):(\d+)(?:\s*[-–]\s*(\d+))?$/);if(!m)return null;
   const ch=bible.books[m[1].trim()]&&bible.books[m[1].trim()][m[2]];if(!ch)return null;const a=+m[3],z=+(m[4]||m[3]),vs=[];
   for(let i=a;i<=z;i++){if(!ch[i])return null;vs.push([i,ch[i]])}return vs.length?vs:null;}
-function stList(){$('stView').hidden=true;$('stForm').hidden=false;const L=S.get().sort((a,b)=>b.date.localeCompare(a.date)),box=$('stList');box.innerHTML='';
-  if(L.length)box.append(h('h3','','Saved studies'));
-  L.forEach(x=>{const d=h('div','entry');d.append(h('h3','',x.study.title),h('div','meta',x.topic+' · '+new Date(x.date).toLocaleDateString()));
-    const o=h('button','btn alt','Open');o.onclick=()=>openStudy(x.id);const del=h('button','btn del','Delete');
-    del.onclick=()=>{if(confirm('Delete this study and your answers?')){S.set(S.get().filter(y=>y.id!==x.id));stList()}};d.append(o,del);box.append(d)});}
+function stList(){$('stView').hidden=true;$('stForm').hidden=false;const L=S.get(),box=$('stList');box.innerHTML='';
+  const seriesMap={},singles=[];
+  L.forEach(x=>{if(x.study.seriesId)(seriesMap[x.study.seriesId]=seriesMap[x.study.seriesId]||{name:x.study.seriesName,items:[]}).items.push(x);else singles.push(x)});
+  const seriesList=Object.entries(seriesMap).map(([id,g])=>({id,...g,latest:Math.max(...g.items.map(i=>new Date(i.date).getTime()))})).sort((a,b)=>b.latest-a.latest);
+  if(seriesList.length){box.append(h('h3','','Series'));
+    seriesList.forEach(g=>{g.items.sort((a,b)=>(a.study.weekIndex||0)-(b.study.weekIndex||0));
+      const card=h('div','entry');card.append(h('h3','',g.name),h('div','meta',g.items.length+' week'+(g.items.length===1?'':'s')));
+      g.items.forEach(x=>{const row=h('div');row.style.cssText='display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap';
+        row.append(h('span','','Week '+(x.study.weekIndex||'?')+': '+x.study.title));
+        const o=h('button','btn alt','Open');o.style.marginLeft='auto';o.onclick=()=>openStudy(x.id);
+        const del=h('button','btn del','Delete');del.onclick=()=>{if(confirm('Delete this week?')){S.set(S.get().filter(y=>y.id!==x.id));stList()}};
+        row.append(o,del);card.append(row)});
+      box.append(card)});}
+  if(singles.length){if(seriesList.length)box.append(h('h3','','Other studies'));
+    singles.sort((a,b)=>b.date.localeCompare(a.date)).forEach(x=>{const d=h('div','entry');d.append(h('h3','',x.study.title),h('div','meta',x.topic+' · '+new Date(x.date).toLocaleDateString()));
+      const o=h('button','btn alt','Open');o.onclick=()=>openStudy(x.id);const del=h('button','btn del','Delete');
+      del.onclick=()=>{if(confirm('Delete this study and your answers?')){S.set(S.get().filter(y=>y.id!==x.id));stList()}};d.append(o,del);box.append(d)});}
+  if(!seriesList.length&&!singles.length)box.innerHTML='';}
 const TYPE_LABEL={personal:'Personal Bible Study',youth:'Youth Bible Study',sunday_school:'Sunday School',prayer_meeting:'Prayer Meeting',sermon_outline:'Sermon Outline',family:'Family Bible Study',discipleship:'Discipleship Study'};
 const AUD_LABEL={general:'General audience',children:'Children',teens:'Teenagers',youth:'Youth',adults:'Adults',new_believers:'New believers',leaders:'Church leaders'};
 function buildStudyText(s,answers){let t=s.title+'\n';
@@ -334,6 +365,7 @@ function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x
     if(s.studyType)bw.append(h('span','badge',TYPE_LABEL[s.studyType]||s.studyType));
     if(s.audience)bw.append(h('span','badge',AUD_LABEL[s.audience]||s.audience));
     if(s.level)bw.append(h('span','badge',s.level[0].toUpperCase()+s.level.slice(1)));
+    if(s.seriesName)bw.append(h('span','badge',s.seriesName+' · Week '+s.weekIndex+' of '+s.weekTotal));
     v.append(bw)}
   v.append(h('p','',s.theme));
   const exRow=h('div','row noprint');
@@ -395,7 +427,12 @@ function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x
   const revRow=h('div','row');revRow.append(revBtn);
   revWrap.append(revInput,revRow,revMsg);
   v.append(revWrap);}
-$('gen').onclick=async()=>{const topic=$('topic').value.trim();if(!topic)return;
+$('seriesChk').onchange=()=>{const on=$('seriesChk').checked;$('seriesFields').hidden=!on;
+  $('topic').placeholder=on?'Series name (e.g. Faith)':"What do you want to explore? (e.g. God's purpose for my life)";
+  $('gen').textContent=on?'Generate series':'Start study';};
+
+$('gen').onclick=async()=>{if($('seriesChk').checked)return generateSeries();
+  const topic=$('topic').value.trim();if(!topic)return;
   let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
   $('gen').disabled=true;$('stMsg').textContent='Preparing your study… this can take a minute or two.';
   try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic,depth:$('depth').value,studyType:$('stype').value,audience:$('audience').value,level:$('level').value})});
@@ -406,6 +443,32 @@ $('gen').onclick=async()=>{const topic=$('topic').value.trim();if(!topic)return;
     S.set(S.get().concat(st));$('topic').value='';$('stMsg').textContent='';openStudy(st.id);
   }catch(e){$('stMsg').textContent=navigator.onLine?e.message:'You are offline. Connect to the internet to create a new study.'}
   $('gen').disabled=false;};
+
+async function generateSeries(){const seriesName=$('topic').value.trim();
+  const weeks=$('seriesWeeks').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!seriesName){alert('Give the series a name first (e.g. Faith).');return}
+  if(!weeks.length){alert('Add at least one week topic, one per line.');return}
+  let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
+  $('gen').disabled=true;const seriesId=Date.now().toString(36);const prior=[];
+  for(let i=0;i<weeks.length;i++){
+    $('stMsg').textContent='Generating week '+(i+1)+' of '+weeks.length+': '+weeks[i]+'…';
+    try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},
+      body:JSON.stringify({topic:weeks[i],depth:$('depth').value,studyType:$('stype').value,audience:$('audience').value,level:$('level').value,
+        seriesName,weekIndex:i+1,weekTotal:weeks.length,priorWeeks:prior})});
+      if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode. Tap Generate series to try again.')}
+      const d=await r.json();if(!r.ok)throw new Error(d.error||('Week '+(i+1)+' failed: '+(d.error||'something went wrong')));
+      d.studyType=$('stype').value;d.audience=$('audience').value;d.level=$('level').value;
+      d.seriesId=seriesId;d.seriesName=seriesName;d.weekIndex=i+1;d.weekTotal=weeks.length;d.weekLabel=weeks[i];
+      localStorage.setItem('pass',pass);
+      const st={id:Date.now().toString(36)+'_'+i,date:new Date().toISOString(),topic:weeks[i],study:d,answers:{}};
+      S.set(S.get().concat(st));
+      prior.push({label:weeks[i],title:d.title,theme:d.theme});
+    }catch(e){$('stMsg').textContent=(navigator.onLine?e.message:'You are offline.')+' Stopped after '+i+' of '+weeks.length+' weeks — already-made weeks are saved.';
+      $('gen').disabled=false;stList();return}
+  }
+  $('topic').value='';$('seriesWeeks').value='';$('seriesChk').checked=false;$('seriesFields').hidden=true;
+  $('topic').placeholder="What do you want to explore? (e.g. God's purpose for my life)";$('gen').textContent='Start study';
+  $('stMsg').textContent='Series "'+seriesName+'" created with '+weeks.length+' weeks.';$('gen').disabled=false;stList();}
 
 const Q={get:()=>{try{return JSON.parse(localStorage.getItem('quizzes')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('quizzes',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
 function setMode(quiz){quizMode=quiz;
@@ -472,6 +535,12 @@ $('imp').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text(
   catch{$('status').textContent='That file is not a valid backup.'}};
 
 try{const sv=localStorage.getItem('ver');if(sv)$('ver').value=sv}catch{}
+function applyTheme(t){if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);
+  $('themeBtn').textContent=t==='light'?'☀️':t==='dark'?'🌙':'🌓';}
+let theme=(()=>{try{return localStorage.getItem('theme')||'auto'}catch{return 'auto'}})();
+applyTheme(theme);
+$('themeBtn').onclick=()=>{theme=theme==='auto'?'light':theme==='light'?'dark':'auto';try{localStorage.setItem('theme',theme)}catch{};applyTheme(theme);};
+
 load(false);renderHome();
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script></body></html>
