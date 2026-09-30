@@ -101,8 +101,17 @@ section[hidden]{display:none}
 <div id="stForm"><input id="topic" maxlength="200" placeholder="What do you want to explore? (e.g. God's purpose for my life)" aria-label="Topic">
 <label class="chk"><input type="checkbox" id="seriesChk"> This is a multi-week series</label>
 <div id="seriesFields" hidden>
-  <textarea id="seriesWeeks" placeholder="One topic per week, e.g.:&#10;Faith in God&#10;Walking by faith&#10;Walking by faith (part 2)&#10;The purpose of having faith in God" aria-label="Week topics, one per line"></textarea>
-  <p class="hint">Each line becomes one week. Every week gets its own passages and content, and later weeks avoid repeating earlier ones.</p>
+  <div class="row">
+    <input id="seriesDuration" type="number" min="1" max="12" value="4" style="max-width:90px" aria-label="Duration">
+    <select id="seriesUnit" aria-label="Duration unit"><option value="weeks">weeks</option><option value="months">months</option></select>
+    <select id="seriesFreq" aria-label="Sessions per week"><option value="1">1× per week</option><option value="2">2× per week</option><option value="3">3× per week</option></select>
+  </div>
+  <p class="meta" id="seriesCountHint"></p>
+  <label class="chk"><input type="checkbox" id="manualWeeksChk"> I'd rather list the session topics myself</label>
+  <div id="manualWeeksWrap" hidden>
+    <textarea id="seriesWeeks" placeholder="One topic per session, e.g.:&#10;Faith in God&#10;Walking by faith&#10;Walking by faith (part 2)&#10;The purpose of having faith in God" aria-label="Session topics, one per line"></textarea>
+  </div>
+  <p class="hint">Give the overall topic above (e.g. "Faith"). Left as-is, the AI plans each session's specific focus itself so they build on each other without repeating.</p>
 </div>
 <div class="row"><select id="stype" aria-label="Study type">
   <option value="personal">Personal Bible Study</option>
@@ -427,9 +436,23 @@ function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x
   const revRow=h('div','row');revRow.append(revBtn);
   revWrap.append(revInput,revRow,revMsg);
   v.append(revWrap);}
+const MAX_SESSIONS=12;
+function seriesCount(){const dur=Math.max(1,parseInt($('seriesDuration').value)||1);
+  const weeksTotal=$('seriesUnit').value==='months'?dur*4:dur;
+  return weeksTotal*(parseInt($('seriesFreq').value)||1);}
+function updateSeriesHint(){const n=seriesCount();const hint=$('seriesCountHint');
+  if(n>MAX_SESSIONS){hint.className='meta warn';hint.textContent='That works out to '+n+' sessions — more than we can generate in one go (max '+MAX_SESSIONS+' per batch). Lower the duration or frequency, or come back and add another batch later.';
+    $('gen').disabled=$('seriesChk').checked&&!$('manualWeeksChk').checked;}
+  else{hint.className='meta';hint.textContent='This will plan '+n+' session'+(n===1?'':'s')+' total, each with its own focus.';
+    if($('seriesChk').checked&&!$('manualWeeksChk').checked)$('gen').disabled=false;}}
+['seriesDuration','seriesUnit','seriesFreq'].forEach(id=>$(id).addEventListener('input',updateSeriesHint));
+$('manualWeeksChk').onchange=()=>{const man=$('manualWeeksChk').checked;$('manualWeeksWrap').hidden=!man;
+  ['seriesDuration','seriesUnit','seriesFreq'].forEach(id=>$(id).disabled=man);
+  if(man){$('seriesCountHint').textContent='';$('gen').disabled=false}else updateSeriesHint();};
 $('seriesChk').onchange=()=>{const on=$('seriesChk').checked;$('seriesFields').hidden=!on;
-  $('topic').placeholder=on?'Series name (e.g. Faith)':"What do you want to explore? (e.g. God's purpose for my life)";
-  $('gen').textContent=on?'Generate series':'Start study';};
+  $('topic').placeholder=on?'Overall topic (e.g. Faith)':"What do you want to explore? (e.g. God's purpose for my life)";
+  $('gen').textContent=on?'Generate series':'Start study';$('gen').disabled=false;
+  if(on&&!$('manualWeeksChk').checked)updateSeriesHint();};
 
 $('gen').onclick=async()=>{if($('seriesChk').checked)return generateSeries();
   const topic=$('topic').value.trim();if(!topic)return;
@@ -445,30 +468,43 @@ $('gen').onclick=async()=>{if($('seriesChk').checked)return generateSeries();
   $('gen').disabled=false;};
 
 async function generateSeries(){const seriesName=$('topic').value.trim();
-  const weeks=$('seriesWeeks').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  if(!seriesName){alert('Give the series a name first (e.g. Faith).');return}
-  if(!weeks.length){alert('Add at least one week topic, one per line.');return}
+  if(!seriesName){alert('Give the overall topic first (e.g. Faith).');return}
   let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
+  let weeks;
+  if($('manualWeeksChk').checked){
+    weeks=$('seriesWeeks').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(!weeks.length){alert('Add at least one session topic, one per line.');return}
+  }else{
+    const n=seriesCount();
+    if(n>MAX_SESSIONS){alert('That is more than '+MAX_SESSIONS+' sessions — lower the duration or frequency first.');return}
+    $('gen').disabled=true;$('stMsg').textContent='Planning your '+n+'-session series…';
+    try{const r=await fetch('/api/series-outline',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic:seriesName,count:n})});
+      if(r.status===401){localStorage.removeItem('pass');$('gen').disabled=false;$('stMsg').textContent='Wrong passcode. Tap Generate series to try again.';return}
+      const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not plan the series.');
+      localStorage.setItem('pass',pass);weeks=(d.weeks||[]).map(w=>w.label);
+      if(!weeks.length)throw new Error('The AI did not return any sessions. Try again.');
+    }catch(e){$('gen').disabled=false;$('stMsg').textContent=navigator.onLine?e.message:'You are offline. Connect to the internet to plan a series.';return}
+  }
   $('gen').disabled=true;const seriesId=Date.now().toString(36);const prior=[];
   for(let i=0;i<weeks.length;i++){
-    $('stMsg').textContent='Generating week '+(i+1)+' of '+weeks.length+': '+weeks[i]+'…';
+    $('stMsg').textContent='Generating session '+(i+1)+' of '+weeks.length+': '+weeks[i]+'…';
     try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},
       body:JSON.stringify({topic:weeks[i],depth:$('depth').value,studyType:$('stype').value,audience:$('audience').value,level:$('level').value,
         seriesName,weekIndex:i+1,weekTotal:weeks.length,priorWeeks:prior})});
-      if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode. Tap Generate series to try again.')}
-      const d=await r.json();if(!r.ok)throw new Error(d.error||('Week '+(i+1)+' failed: '+(d.error||'something went wrong')));
+      if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode.')}
+      const d=await r.json();if(!r.ok)throw new Error(d.error||('Session '+(i+1)+' failed.'));
       d.studyType=$('stype').value;d.audience=$('audience').value;d.level=$('level').value;
       d.seriesId=seriesId;d.seriesName=seriesName;d.weekIndex=i+1;d.weekTotal=weeks.length;d.weekLabel=weeks[i];
       localStorage.setItem('pass',pass);
       const st={id:Date.now().toString(36)+'_'+i,date:new Date().toISOString(),topic:weeks[i],study:d,answers:{}};
       S.set(S.get().concat(st));
       prior.push({label:weeks[i],title:d.title,theme:d.theme});
-    }catch(e){$('stMsg').textContent=(navigator.onLine?e.message:'You are offline.')+' Stopped after '+i+' of '+weeks.length+' weeks — already-made weeks are saved.';
+    }catch(e){$('stMsg').textContent=(navigator.onLine?e.message:'You are offline.')+' Stopped after '+i+' of '+weeks.length+' sessions — already-made ones are saved.';
       $('gen').disabled=false;stList();return}
   }
-  $('topic').value='';$('seriesWeeks').value='';$('seriesChk').checked=false;$('seriesFields').hidden=true;
+  $('topic').value='';$('seriesWeeks').value='';$('seriesChk').checked=false;$('seriesFields').hidden=true;$('manualWeeksChk').checked=false;$('manualWeeksWrap').hidden=true;
   $('topic').placeholder="What do you want to explore? (e.g. God's purpose for my life)";$('gen').textContent='Start study';
-  $('stMsg').textContent='Series "'+seriesName+'" created with '+weeks.length+' weeks.';$('gen').disabled=false;stList();}
+  $('stMsg').textContent='Series "'+seriesName+'" created with '+weeks.length+' sessions.';$('gen').disabled=false;stList();}
 
 const Q={get:()=>{try{return JSON.parse(localStorage.getItem('quizzes')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('quizzes',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
 function setMode(quiz){quizMode=quiz;
