@@ -44,6 +44,8 @@ label.chk{display:flex;align-items:center;gap:8px;margin:10px 0;font:.9rem syste
 label.chk input{width:auto;margin:0}
 .badge{display:inline-block;font:.78rem system-ui,sans-serif;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:3px 10px;margin:2px 6px 2px 0;color:var(--mute)}
 .btn.on{background:var(--gold);border-color:var(--gold);color:#1d2623}
+.bar{background:var(--line);border-radius:6px;height:10px;overflow:hidden;margin:6px 0}
+.bar>div{background:var(--gold);height:100%}
 section[hidden]{display:none}
 @media print{
   header,nav,.noprint{display:none!important}
@@ -55,12 +57,19 @@ section[hidden]{display:none}
 <header><h1>My Bible Study</h1><button id="themeBtn" style="position:absolute;top:calc(14px + env(safe-area-inset-top));right:20px;background:none;border:1px solid #f2f0ea55;color:#f2f0ea;border-radius:6px;padding:6px 10px;font:.85rem system-ui,sans-serif;cursor:pointer">🌓</button></header>
 <main>
 <section id="home">
+  <div id="reminderBanner"></div>
   <div class="stat">
     <div><b id="stStudies">0</b>Studies</div>
     <div><b id="stVault">0</b>Saved verses</div>
     <div><b id="stJournal">0</b>Journal entries</div>
   </div>
   <div id="continueBox"></div>
+  <h3>This week's suggestion</h3>
+  <div id="suggestBox"></div>
+  <h3>🎯 Weekly goals</h3>
+  <div id="goalsBox"></div>
+  <h3>⏰ Daily reading reminder</h3>
+  <div id="reminderBox"></div>
   <h3>Start something new</h3>
   <div class="row">
     <button class="btn alt" data-go="read">📖 Read Scripture</button>
@@ -248,8 +257,10 @@ function progUpdate(){const book=$('book').value,chap=$('chap').value;
   Object.keys(bible.books[book]||{}).forEach(c=>{const b=document.createElement('button');b.textContent=c;if(readSet.has(c))b.classList.add('done');
     b.onclick=()=>{$('chap').value=c;show();progUpdate();scrollTo(0,0)};grid.append(b)});}
 $('toggleProg').onclick=()=>{$('progPanel').hidden=!$('progPanel').hidden;if(!$('progPanel').hidden)progUpdate();};
+const RL={get:()=>{try{return JSON.parse(localStorage.getItem('readLog')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('readLog',JSON.stringify(v))}catch{}}};
 $('readChk').onchange=()=>{const book=$('book').value,chap=$('chap').value;const prog=P.get();const set=new Set(prog[book]||[]);
-  if($('readChk').checked)set.add(chap);else set.delete(chap);prog[book]=[...set];P.set(prog);if(!$('progPanel').hidden)progUpdate();};
+  if($('readChk').checked){set.add(chap);RL.set(RL.get().concat({date:new Date().toISOString(),book,chap}))}else set.delete(chap);
+  prog[book]=[...set];P.set(prog);if(!$('progPanel').hidden)progUpdate();};
 
 const CN={get:()=>{try{return JSON.parse(localStorage.getItem('chapterNotes')||'{}')}catch{return{}}},set:v=>{try{localStorage.setItem('chapterNotes',JSON.stringify(v))}catch{}}};
 function renderChapPanel(notes){const p=$('chapPanel');p.innerHTML='';
@@ -357,7 +368,83 @@ function renderHome(){$('stStudies').textContent=S.get().length;$('stVault').tex
     const btn=h('button','btn alt','Open');btn.style.marginTop='8px';
     btn.onclick=()=>{document.querySelector('[data-t=study]').click();openStudy(ls.id)};
     p.append(document.createElement('br'),btn);box.append(p)}
-  if(!lr&&!ls)box.innerHTML='<p class="hint">Nothing yet — start below.</p>';}
+  if(!lr&&!ls)box.innerHTML='<p class="hint">Nothing yet — start below.</p>';
+  renderSuggestion();renderGoals();renderReminder();}
+
+const Suggest={get:()=>{try{return JSON.parse(localStorage.getItem('weeklySuggestion'))}catch{return null}},set:v=>{try{localStorage.setItem('weeklySuggestion',JSON.stringify(v))}catch{}}};
+function renderSuggestion(sug){const box=$('suggestBox');const cached=sug||Suggest.get();
+  const stale=!cached||(Date.now()-cached.generatedAt)>7*24*60*60*1000;
+  if(!cached){box.innerHTML='<p class="hint">Loading this week\'s suggestion…</p>';fetchSuggestion();return}
+  box.innerHTML='';const p=h('div','panel');
+  p.append(h('strong','',cached.topic),h('p','',cached.theme));
+  if(cached.passages&&cached.passages.length)p.append(h('p','tag','Passages: '+cached.passages.join(', ')));
+  if(cached.prayer)p.append(h('p','tag','Prayer'),h('p','',cached.prayer));
+  const row=h('div','row');
+  const start=h('button','btn','Start this study');start.onclick=()=>{document.querySelector('[data-t=study]').click();
+    setMode(false);$('seriesChk').checked=false;$('seriesFields').hidden=true;$('topic').value=cached.topic;$('topic').focus()};
+  row.append(start);
+  if(stale){const ref=h('button','btn alt','Get a new one');ref.onclick=()=>fetchSuggestion();row.append(ref)}
+  p.append(row);box.append(p);
+  if(stale)box.append(h('p','meta','This suggestion is over a week old — tap "Get a new one" when you have internet.'));}
+async function fetchSuggestion(){let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
+  $('suggestBox').innerHTML='<p class="hint">Finding a suggestion for this week…</p>';
+  try{const r=await fetch('/api/suggestion',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:'{}'});
+    if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode.')}
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');
+    localStorage.setItem('pass',pass);d.generatedAt=Date.now();Suggest.set(d);renderSuggestion(d);
+  }catch(e){$('suggestBox').innerHTML='';$('suggestBox').append(h('p','meta',navigator.onLine?e.message:'You are offline. Connect to the internet to load a suggestion.'))}}
+
+const Goals={get:()=>{try{return Object.assign({chaptersTarget:5,sessionsTarget:2},JSON.parse(localStorage.getItem('goals')||'{}'))}catch{return{chaptersTarget:5,sessionsTarget:2}}},set:v=>{try{localStorage.setItem('goals',JSON.stringify(v))}catch{}}};
+function weekChapterCount(){const cutoff=Date.now()-7*24*60*60*1000;const seen=new Set();
+  RL.get().forEach(e=>{if(new Date(e.date).getTime()>=cutoff)seen.add(e.book+':'+e.chap)});return seen.size;}
+function weekSessionCount(){const cutoff=Date.now()-7*24*60*60*1000;
+  return S.get().filter(x=>new Date(x.date).getTime()>=cutoff).length+Q.get().filter(x=>new Date(x.date).getTime()>=cutoff).length;}
+function renderGoals(){const box=$('goalsBox');box.innerHTML='';const g=Goals.get();
+  const ch=weekChapterCount(),se=weekSessionCount();
+  const mk=(label,val,target)=>{const wrap=h('div');wrap.style.marginBottom='12px';
+    wrap.append(h('div','',label+': '+val+' / '+target+(val>=target?' 🎉':'')));
+    const bar=h('div','bar');const fill=document.createElement('div');fill.style.width=Math.min(100,target?val/target*100:0)+'%';bar.append(fill);wrap.append(bar);return wrap;};
+  box.append(mk('Chapters read this week',ch,g.chaptersTarget));
+  box.append(mk('Study/quiz sessions this week',se,g.sessionsTarget));
+  const row=h('div','row');
+  const edit=h('button','btn alt','Edit goals');edit.onclick=()=>{const c=prompt('Weekly chapters goal:',g.chaptersTarget);if(c===null)return;
+    const s=prompt('Weekly sessions goal:',g.sessionsTarget);if(s===null)return;
+    Goals.set({chaptersTarget:Math.max(1,parseInt(c)||g.chaptersTarget),sessionsTarget:Math.max(1,parseInt(s)||g.sessionsTarget)});renderGoals()};
+  const review=h('button','btn alt','📝 Review this week');review.onclick=weeklyReview;
+  row.append(edit,review);box.append(row);}
+async function weeklyReview(){const cutoff=Date.now()-7*24*60*60*1000;
+  const chaps=[...new Set(RL.get().filter(e=>new Date(e.date).getTime()>=cutoff).map(e=>e.book+' '+e.chap))];
+  const studies=S.get().filter(x=>new Date(x.date).getTime()>=cutoff).map(x=>x.study.title);
+  if(!chaps.length&&!studies.length){alert('Nothing logged this week yet — mark a chapter read or start a study first.');return}
+  let topic='This week\'s Bible reading review.';
+  if(chaps.length)topic+=' Chapters read: '+chaps.join(', ')+'.';
+  if(studies.length)topic+=' Studies covered: '+studies.join(', ')+'.';
+  document.querySelector('[data-t=study]').click();setMode(true);
+  await generateQuiz(topic,'10','medium');}
+
+const Reminder={get:()=>{try{return Object.assign({enabled:false,time:'07:00',lastShown:''},JSON.parse(localStorage.getItem('reminder')||'{}'))}catch{return{enabled:false,time:'07:00',lastShown:''}}},set:v=>{try{localStorage.setItem('reminder',JSON.stringify(v))}catch{}}};
+function renderReminder(){const box=$('reminderBox');box.innerHTML='';const r=Reminder.get();
+  const chk=document.createElement('input');chk.type='checkbox';chk.id='remChk';chk.checked=r.enabled;chk.style.cssText='width:auto;margin:0';
+  const lbl=h('label','chk');lbl.append(chk,document.createTextNode(' Remind me to read the Bible each day'));
+  const time=document.createElement('input');time.type='time';time.value=r.time;time.setAttribute('aria-label','Reminder time');time.style.maxWidth='140px';
+  const save=h('button','btn alt','Save');
+  save.onclick=async()=>{const enabled=chk.checked;
+    if(enabled&&'Notification' in window&&Notification.permission==='default'){try{await Notification.requestPermission()}catch{}}
+    Reminder.set({enabled,time:time.value||'07:00',lastShown:r.lastShown});
+    save.textContent='Saved ✓';setTimeout(()=>save.textContent='Save',1200);checkReminder();};
+  box.append(lbl,time,save);
+  box.append(h('p','hint','Best-effort only: this checks when you open the app, not a true background alarm.'));}
+function showReminderBanner(){const t=h('div','',"📖 Time for today's Bible reading — tap to go read.");
+  t.style.cssText='position:fixed;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;z-index:999;background:var(--gold);color:#1d2623;padding:12px 16px;border-radius:8px;font:.95rem system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);text-align:center';
+  t.onclick=()=>{document.querySelector('[data-t=read]').click();t.remove()};document.body.append(t);setTimeout(()=>t.remove(),9000);}
+function checkReminder(){const r=Reminder.get();if(!r.enabled)return;
+  const now=new Date();const [hh,mm]=(r.time||'07:00').split(':').map(Number);
+  const target=new Date();target.setHours(hh,mm,0,0);
+  const today=now.toISOString().slice(0,10);
+  if(now>=target&&r.lastShown!==today){showReminderBanner();
+    if('Notification' in window&&Notification.permission==='granted'){try{new Notification('My Bible Study',{body:"It's time for today's Bible reading 📖"})}catch{}}
+    Reminder.set({...r,lastShown:today});}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkReminder();});
 
 function renderVault(){const L=V.get().sort((a,b)=>b.date.localeCompare(a.date));
   const tags=[...new Set(L.map(x=>x.tag))].sort();
@@ -395,24 +482,59 @@ $('save').onclick=()=>{const body=$('jBody').value.trim();if(!body&&!$('jTitle')
 function parseRef(r){const m=String(r).match(/^(.+?)\s+(\d+):(\d+)(?:\s*[-–]\s*(\d+))?$/);if(!m)return null;
   const ch=bible.books[m[1].trim()]&&bible.books[m[1].trim()][m[2]];if(!ch)return null;const a=+m[3],z=+(m[4]||m[3]),vs=[];
   for(let i=a;i<=z;i++){if(!ch[i])return null;vs.push([i,ch[i]])}return vs.length?vs:null;}
+const PERPAGE=6;
+function paginateArr(arr,page){const totalPages=Math.max(1,Math.ceil(arr.length/PERPAGE));page=Math.min(Math.max(1,page),totalPages);return {slice:arr.slice((page-1)*PERPAGE,page*PERPAGE),page,totalPages};}
+function pagerRow(page,totalPages,onPrev,onNext){if(totalPages<=1)return null;const row=h('div','row');row.style.justifyContent='center';
+  const prev=h('button','btn alt','← Prev');prev.disabled=page<=1;prev.onclick=onPrev;
+  const info=h('span','meta','Page '+page+' of '+totalPages);info.style.alignSelf='center';
+  const next=h('button','btn alt','Next →');next.disabled=page>=totalPages;next.onclick=onNext;
+  row.append(prev,info,next);return row;}
+let showArchived=false;const pageState={stPage:1,seriesPage:1,archStPage:1,archSeriesPage:1};
 function stList(){$('stView').hidden=true;$('stForm').hidden=false;const L=S.get(),box=$('stList');box.innerHTML='';
-  const seriesMap={},singles=[];
-  L.forEach(x=>{if(x.study.seriesId)(seriesMap[x.study.seriesId]=seriesMap[x.study.seriesId]||{name:x.study.seriesName,items:[]}).items.push(x);else singles.push(x)});
-  const seriesList=Object.entries(seriesMap).map(([id,g])=>({id,...g,latest:Math.max(...g.items.map(i=>new Date(i.date).getTime()))})).sort((a,b)=>b.latest-a.latest);
-  if(seriesList.length){box.append(h('h3','','Series'));
-    seriesList.forEach(g=>{g.items.sort((a,b)=>(a.study.weekIndex||0)-(b.study.weekIndex||0));
+  const activeSeriesMap={},archSeriesMap={},activeSingles=[],archSingles=[];
+  L.forEach(x=>{const arch=!!x.archived;
+    if(x.study.seriesId){const map=arch?archSeriesMap:activeSeriesMap;(map[x.study.seriesId]=map[x.study.seriesId]||{name:x.study.seriesName,items:[]}).items.push(x)}
+    else (arch?archSingles:activeSingles).push(x)});
+  const seriesArr=map=>Object.entries(map).map(([id,g])=>({id,...g,latest:Math.max(...g.items.map(i=>new Date(i.date).getTime()))})).sort((a,b)=>b.latest-a.latest);
+  const activeSeriesList=seriesArr(activeSeriesMap),archSeriesList=seriesArr(archSeriesMap);
+
+  const toggle=h('div','row');
+  const ab=h('button','btn alt'+(showArchived?'':' on'),'Active');ab.onclick=()=>{showArchived=false;stList()};
+  const bb=h('button','btn alt'+(showArchived?' on':''),'Archived ('+(archSingles.length+archSeriesList.length)+')');bb.onclick=()=>{showArchived=true;stList()};
+  toggle.append(ab,bb);box.append(toggle);
+
+  function renderSeries(list,pageKey){if(!list.length)return;
+    box.append(h('h3','',showArchived?'Archived series':'Series'));
+    const {slice,page,totalPages}=paginateArr(list,pageState[pageKey]);pageState[pageKey]=page;
+    slice.forEach(g=>{g.items.sort((a,b)=>(a.study.weekIndex||0)-(b.study.weekIndex||0));
       const card=h('div','entry');card.append(h('h3','',g.name),h('div','meta',g.items.length+' week'+(g.items.length===1?'':'s')));
+      const at=h('button','btn alt',showArchived?'Unarchive series':'Archive series');
+      at.onclick=()=>{S.set(S.get().map(x=>x.study.seriesId===g.id?{...x,archived:!showArchived}:x));stList()};
+      card.append(at);
       g.items.forEach(x=>{const row=h('div');row.style.cssText='display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap';
         row.append(h('span','','Week '+(x.study.weekIndex||'?')+': '+x.study.title));
         const o=h('button','btn alt','Open');o.style.marginLeft='auto';o.onclick=()=>openStudy(x.id);
         const del=h('button','btn del','Delete');del.onclick=()=>{if(confirm('Delete this week?')){S.set(S.get().filter(y=>y.id!==x.id));stList()}};
         row.append(o,del);card.append(row)});
-      box.append(card)});}
-  if(singles.length){if(seriesList.length)box.append(h('h3','','Other studies'));
-    singles.sort((a,b)=>b.date.localeCompare(a.date)).forEach(x=>{const d=h('div','entry');d.append(h('h3','',x.study.title),h('div','meta',x.topic+' · '+new Date(x.date).toLocaleDateString()));
-      const o=h('button','btn alt','Open');o.onclick=()=>openStudy(x.id);const del=h('button','btn del','Delete');
-      del.onclick=()=>{if(confirm('Delete this study and your answers?')){S.set(S.get().filter(y=>y.id!==x.id));stList()}};d.append(o,del);box.append(d)});}
-  if(!seriesList.length&&!singles.length)box.innerHTML='';}
+      box.append(card)});
+    const pr=pagerRow(page,totalPages,()=>{pageState[pageKey]--;stList()},()=>{pageState[pageKey]++;stList()});if(pr)box.append(pr);}
+
+  function renderSingles(list,pageKey){if(!list.length)return;
+    box.append(h('h3','',showArchived?'Archived studies':(Object.keys(showArchived?archSeriesMap:activeSeriesMap).length?'Other studies':'Studies')));
+    list=list.slice().sort((a,b)=>b.date.localeCompare(a.date));
+    const {slice,page,totalPages}=paginateArr(list,pageState[pageKey]);pageState[pageKey]=page;
+    slice.forEach(x=>{const d=h('div','entry');d.append(h('h3','',x.study.title),h('div','meta',x.topic+' · '+new Date(x.date).toLocaleDateString()));
+      const o=h('button','btn alt','Open');o.onclick=()=>openStudy(x.id);
+      const at=h('button','btn alt',showArchived?'Unarchive':'Archive');at.onclick=()=>{S.set(S.get().map(y=>y.id===x.id?{...y,archived:!showArchived}:y));stList()};
+      const del=h('button','btn del','Delete');del.onclick=()=>{if(confirm('Delete this study and your answers?')){S.set(S.get().filter(y=>y.id!==x.id));stList()}};
+      d.append(o,at,del);box.append(d)});
+    const pr=pagerRow(page,totalPages,()=>{pageState[pageKey]--;stList()},()=>{pageState[pageKey]++;stList()});if(pr)box.append(pr);}
+
+  if(showArchived){renderSeries(archSeriesList,'archSeriesPage');renderSingles(archSingles,'archStPage');
+    if(!archSeriesList.length&&!archSingles.length)box.append(h('p','hint','Nothing archived yet.'));}
+  else{renderSeries(activeSeriesList,'seriesPage');renderSingles(activeSingles,'stPage');
+    if(!activeSeriesList.length&&!activeSingles.length)box.append(h('p','hint','No studies yet — create one above.'));}}
+
 const TYPE_LABEL={personal:'Personal Bible Study',youth:'Youth Bible Study',sunday_school:'Sunday School',prayer_meeting:'Prayer Meeting',sermon_outline:'Sermon Outline',family:'Family Bible Study',discipleship:'Discipleship Study'};
 const AUD_LABEL={general:'General audience',children:'Children',teens:'Teenagers',youth:'Youth',adults:'Adults',new_believers:'New believers',leaders:'Church leaders'};
 function buildStudyText(s,answers){let t=s.title+'\n';
@@ -426,7 +548,12 @@ function buildStudyText(s,answers){let t=s.title+'\n';
   if(s.closingChallenge)t+='\nClosing challenge:\n'+s.closingChallenge+'\n';
   t+='\nPrayer:\n'+s.prayer+'\n';return t;}
 function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x.study,v=$('stView');v.innerHTML='';$('stForm').hidden=true;v.hidden=false;
-  const back=h('button','btn alt noprint','← All studies');back.onclick=stList;v.append(back,h('h2','',s.title));
+  const back=h('button','btn alt noprint','← All studies');back.onclick=stList;
+  const archNow=h('button','btn alt noprint',x.archived?'Unarchive':'Archive');
+  archNow.onclick=()=>{if(s.seriesId)S.set(S.get().map(y=>y.study.seriesId===s.seriesId?{...y,archived:!x.archived}:y));
+    else S.set(S.get().map(y=>y.id===x.id?{...y,archived:!x.archived}:y));
+    stList();};
+  v.append(back,archNow,h('h2','',s.title));
   if(s.studyType||s.audience||s.level){const bw=h('div');
     if(s.studyType)bw.append(h('span','badge',TYPE_LABEL[s.studyType]||s.studyType));
     if(s.audience)bw.append(h('span','badge',AUD_LABEL[s.audience]||s.audience));
@@ -574,13 +701,24 @@ function setMode(quiz){quizMode=quiz;
   if(quiz)quizList();else stList();}
 $('modeStudy').onclick=()=>setMode(false);$('modeQuiz').onclick=()=>setMode(true);
 
-function quizList(){$('quizView').hidden=true;$('quizForm').hidden=false;const L=Q.get().sort((a,b)=>b.date.localeCompare(a.date)),box=$('quizList');box.innerHTML='';
-  if(L.length)box.append(h('h3','','Saved quizzes'));
-  L.forEach(x=>{const d=h('div','entry');const sc=x.submitted?' · scored '+x.score+'/'+x.quiz.questions.length:'';
+let showArchivedQuiz=false;const quizPageState={quizPage:1,archQuizPage:1};
+function quizList(){$('quizView').hidden=true;$('quizForm').hidden=false;const box=$('quizList');box.innerHTML='';
+  const all=Q.get();const active=all.filter(x=>!x.archived),arch=all.filter(x=>x.archived);
+  const toggle=h('div','row');
+  const ab=h('button','btn alt'+(showArchivedQuiz?'':' on'),'Active');ab.onclick=()=>{showArchivedQuiz=false;quizList()};
+  const bb=h('button','btn alt'+(showArchivedQuiz?' on':''),'Archived ('+arch.length+')');bb.onclick=()=>{showArchivedQuiz=true;quizList()};
+  toggle.append(ab,bb);box.append(toggle);
+  const list=(showArchivedQuiz?arch:active).sort((a,b)=>b.date.localeCompare(a.date));
+  if(!list.length){box.append(h('p','hint',showArchivedQuiz?'Nothing archived yet.':'No quizzes yet — create one above.'));return}
+  const pageKey=showArchivedQuiz?'archQuizPage':'quizPage';
+  const {slice,page,totalPages}=paginateArr(list,quizPageState[pageKey]);quizPageState[pageKey]=page;
+  slice.forEach(x=>{const d=h('div','entry');const sc=x.submitted?' · scored '+x.score+'/'+x.quiz.questions.length:'';
     d.append(h('h3','',x.quiz.title),h('div','meta',x.topic+sc+' · '+new Date(x.date).toLocaleDateString()));
     const o=h('button','btn alt',x.submitted?'Review':'Take quiz');o.onclick=()=>openQuiz(x.id);
+    const at=h('button','btn alt',showArchivedQuiz?'Unarchive':'Archive');at.onclick=()=>{Q.set(Q.get().map(y=>y.id===x.id?{...y,archived:!showArchivedQuiz}:y));quizList()};
     const del=h('button','btn del','Delete');del.onclick=()=>{if(confirm('Delete this quiz?')){Q.set(Q.get().filter(y=>y.id!==x.id));quizList()}};
-    d.append(o,del);box.append(d)});}
+    d.append(o,at,del);box.append(d)});
+  const pr=pagerRow(page,totalPages,()=>{quizPageState[pageKey]--;quizList()},()=>{quizPageState[pageKey]++;quizList()});if(pr)box.append(pr);}
 function openQuiz(id){const x=Q.get().find(y=>y.id===id);if(!x)return;const qz=x.quiz,v=$('quizView');v.innerHTML='';$('quizForm').hidden=true;v.hidden=false;
   const back=h('button','btn alt noprint','← All quizzes');back.onclick=quizList;v.append(back,h('h2','',qz.title));
   if(x.submitted)v.append(h('p','',(x.score===qz.questions.length?'Perfect! ':'')+'You scored '+x.score+' out of '+qz.questions.length+'.'));
@@ -603,19 +741,20 @@ function openQuiz(id){const x=Q.get().find(y=>y.id===id);if(!x)return;const qz=x
       let score=0;qz.questions.forEach((qq,qi)=>{if(y.answers[qi]===qq.correctIndex)score++});
       y.submitted=true;y.score=score;Q.set(L);openQuiz(id)};
     v.append(sub)}}
-$('qGen').onclick=async()=>{const topic=$('qTopic').value.trim();if(!topic)return;
+async function generateQuiz(topic,count,difficulty){
   let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
   $('qGen').disabled=true;$('qMsg').textContent='Preparing your quiz… this can take a minute or two.';
-  try{const r=await fetch('/api/quiz',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic,count:$('qCount').value,difficulty:$('qDiff').value})});
+  try{const r=await fetch('/api/quiz',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic,count,difficulty})});
     if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode. Tap Generate quiz to try again.')}
     const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');
     localStorage.setItem('pass',pass);const qz={id:Date.now().toString(36),date:new Date().toISOString(),topic,quiz:d,answers:{},submitted:false,score:0};
     Q.set(Q.get().concat(qz));$('qTopic').value='';$('qMsg').textContent='';openQuiz(qz.id);
   }catch(e){$('qMsg').textContent=navigator.onLine?e.message:'You are offline. Connect to the internet to create a new quiz.'}
-  $('qGen').disabled=false;};
+  $('qGen').disabled=false;}
+$('qGen').onclick=()=>{const topic=$('qTopic').value.trim();if(!topic)return;generateQuiz(topic,$('qCount').value,$('qDiff').value)};
 setMode(false);
 
-$('exp').onclick=()=>{const b=new Blob([JSON.stringify({entries:store.get(),studies:S.get(),vault:V.get(),progress:P.get(),quizzes:Q.get(),chapterNotes:CN.get()},null,1)],{type:'application/json'});
+$('exp').onclick=()=>{const b=new Blob([JSON.stringify({entries:store.get(),studies:S.get(),vault:V.get(),progress:P.get(),quizzes:Q.get(),chapterNotes:CN.get(),readLog:RL.get(),goals:Goals.get(),reminder:Reminder.get()},null,1)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='bible-journal-'+new Date().toISOString().slice(0,10)+'.json';a.click();
   $('status').textContent='Backup downloaded. Keep it somewhere safe.';};
 $('impBtn').onclick=()=>$('imp').click();
@@ -627,6 +766,10 @@ $('imp').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text(
   const qc=Q.get(),qi=new Set(qc.map(x=>x.id)),qa=(d.quizzes||[]).filter(x=>x.id&&!qi.has(x.id));Q.set(qc.concat(qa));
   if(d.progress)P.set(Object.assign(P.get(),d.progress));
   if(d.chapterNotes)CN.set(Object.assign(CN.get(),d.chapterNotes));
+  if(Array.isArray(d.readLog)){const rc=RL.get(),rkey=e=>e.date+e.book+e.chap,rset=new Set(rc.map(rkey));
+    RL.set(rc.concat(d.readLog.filter(e=>e&&!rset.has(rkey(e)))));}
+  if(d.goals)Goals.set(Object.assign(Goals.get(),d.goals));
+  if(d.reminder)Reminder.set(Object.assign(Reminder.get(),d.reminder));
   $('status').textContent='Restored '+add.length+' entries, '+sa.length+' studies, '+va.length+' saved verses, '+qa.length+' quizzes.';}
   catch{$('status').textContent='That file is not a valid backup.'}};
 
@@ -637,6 +780,6 @@ let theme=(()=>{try{return localStorage.getItem('theme')||'auto'}catch{return 'a
 applyTheme(theme);
 $('themeBtn').onclick=()=>{theme=theme==='auto'?'light':theme==='light'?'dark':'auto';try{localStorage.setItem('theme',theme)}catch{};applyTheme(theme);};
 
-load(false);renderHome();
+load(false);renderHome();checkReminder();
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script></body></html>
