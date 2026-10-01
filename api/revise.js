@@ -7,6 +7,7 @@ Rules:
 - passages are references only, never quoted verse text. Use full book names and standard KJV chapter:verse numbering.
 - Keep what the text says separate from interpretation. Do not claim to speak for God.
 - Keep "openingActivity" and "closingChallenge" as empty strings if the original study did not use them and the request doesn't call for them.
+- Keep exactly one question in each of "observation", "interpretation" and "application" unless the requested change explicitly asks to add or remove questions.
 - Output ONLY the JSON object for the FULL revised study. Nothing before or after it.`;
 
 module.exports = async (req, res) => {
