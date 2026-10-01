@@ -14,6 +14,12 @@ const LEVEL_GUIDE = {
   advanced: 'Advanced: can include historical/cultural context, cross-references, and more theological depth, still kept practical.'
 };
 
+const DEPTH_GUIDE = {
+  quick: '2-3 passages, 2 points. Point explanations should be BRIEF: 1-2 short sentences each, just the core idea.',
+  standard: '3-4 passages, 3 points. Point explanations should be MODERATE: 3-5 sentences each, with some explanation of how it connects to the passage.',
+  deep: '4-5 passages, 4 points. Point explanations should be THOROUGH and DETAILED: 6-10 sentences each, including relevant historical or cultural context, cross-references where useful, and fuller reasoning — written as a substantial paragraph, not a summary.'
+};
+
 const SYSTEM = `You help build Bible studies for a Bible study app. Reply with ONLY valid JSON (no markdown, no commentary, no code fences) in exactly this shape:
 {"title":"","theme":"one sentence","passages":["Ephesians 2:8-10"],"context":"short background: author, audience, setting","openingActivity":"","points":[{"heading":"","explanation":""}],"questions":{"observation":[""],"interpretation":[""],"application":[""]},"closingChallenge":"","prayer":"a short prayer based on the theme, in first person"}
 Rules:
@@ -22,7 +28,7 @@ Rules:
 - Do not claim to speak for God. Be warm, plain and practical.
 - omit "openingActivity" (empty string) unless the study type calls for one. omit "closingChallenge" (empty string) unless the study type calls for one.
 - Tailor vocabulary and depth to the stated audience and level.
-- Size by depth: quick = 2-3 passages, 2 points, 1 question per type. standard = 3-4 passages, 3 points, 2 questions per type. deep = 4-5 passages, 4 points, 3 questions per type.
+- "questions": always EXACTLY one question in "observation", EXACTLY one in "interpretation", and EXACTLY one in "application" — never more, never fewer, regardless of depth.
 - Output ONLY the JSON object. Nothing before or after it.`;
 
 module.exports = async (req, res) => {
@@ -36,7 +42,7 @@ module.exports = async (req, res) => {
   const st = TYPE_GUIDE[studyType] ? studyType : 'personal';
   const lv = LEVEL_GUIDE[level] ? level : 'intermediate';
   const aud = typeof audience === 'string' && audience.trim() ? audience.trim() : 'general';
-  let userMsg = `Topic: ${topic.trim()}\nDepth (length): ${d}\nStudy type: ${st} — ${TYPE_GUIDE[st]}\nAudience: ${aud}\nLevel: ${lv} — ${LEVEL_GUIDE[lv]}`;
+  let userMsg = `Topic: ${topic.trim()}\nDepth (length & detail): ${d} — ${DEPTH_GUIDE[d]}\nStudy type: ${st} — ${TYPE_GUIDE[st]}\nAudience: ${aud}\nLevel: ${lv} — ${LEVEL_GUIDE[lv]}`;
   if (typeof seriesName === 'string' && seriesName.trim()) {
     userMsg += `\n\nThis study is week ${weekIndex} of ${weekTotal} in a multi-week series called "${seriesName.trim()}". `;
     userMsg += `Write it so it clearly belongs to that series and this week's specific angle ("${topic.trim()}"), without repeating what earlier weeks already covered.`;
@@ -56,7 +62,7 @@ module.exports = async (req, res) => {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: SYSTEM }] },
           contents: [{ role: 'user', parts: [{ text: userMsg }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 4000, responseMimeType: 'application/json' }
+          generationConfig: { temperature: 0.7, maxOutputTokens: 5000, responseMimeType: 'application/json' }
         })
       }
     );
