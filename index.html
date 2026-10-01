@@ -7,46 +7,72 @@
 <meta name="theme-color" content="#16302b">
 <link rel="icon" href="icon.svg">
 <style>
-:root{--bg:#f2f0ea;--ink:#1d2623;--mute:#5b6763;--deep:#16302b;--gold:#c9862b;--line:#d5d2c8;--card:#fbfaf6}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101a18;--ink:#e6e8e2;--mute:#9aa8a3;--deep:#0b1211;--line:#2a3a36;--card:#16231f}}
-:root[data-theme="dark"]{--bg:#101a18;--ink:#e6e8e2;--mute:#9aa8a3;--deep:#0b1211;--line:#2a3a36;--card:#16231f}
+:root{
+  --bg:#f7f4ec;--paper:#fcfaf4;--ink:#241f16;--mute:#6b6358;--deep:#122b24;--deep-ink:#0c1714;
+  --gold:#a8672a;--gold-dark:#8a5420;--line:#ddd6c4;--ring:#0b5341;--warn:#b8432f;
+  --radius:10px;--space-1:8px;--space-2:14px;--space-3:22px;--space-4:34px;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1714;--paper:#121f1b;--ink:#eef0e8;--mute:#9fab9f;--deep:#0a1613;--deep-ink:#eef0e8;
+  --gold:#d9a24b;--gold-dark:#e8c98a;--line:#28362f;--ring:#d9a24b;--warn:#d9644a;
+}}
+:root[data-theme="dark"]{
+  --bg:#0c1714;--paper:#121f1b;--ink:#eef0e8;--mute:#9fab9f;--deep:#0a1613;--deep-ink:#eef0e8;
+  --gold:#d9a24b;--gold-dark:#e8c98a;--line:#28362f;--ring:#d9a24b;--warn:#d9644a;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.7 "Iowan Old Style",Palatino,Georgia,serif;padding-bottom:70px}
-header{background:var(--deep);color:#f2f0ea;padding:calc(14px + env(safe-area-inset-top)) 20px 14px;position:relative}
-h1{margin:0;font-size:1.25rem;font-weight:600}
-main{max-width:680px;margin:0 auto;padding:20px}
-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--deep);padding-bottom:env(safe-area-inset-bottom)}
-nav button{flex:1;background:none;border:0;color:#9db2ac;font:inherit;font-size:.8rem;padding:12px 2px;cursor:pointer}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.7 "Iowan Old Style",Palatino,Georgia,serif;padding-bottom:76px;-webkit-font-smoothing:antialiased}
+.skip-link{position:absolute;top:-100px;left:12px;background:var(--gold);color:#1a140c;padding:10px 16px;border-radius:6px;z-index:1000;font:600 .9rem system-ui,sans-serif;text-decoration:none}
+.skip-link:focus{top:calc(10px + env(safe-area-inset-top))}
+header{background:var(--deep);color:#f7f4ec;padding:calc(16px + env(safe-area-inset-top)) 20px 16px;position:relative;border-bottom:1px solid rgba(255,255,255,.08)}
+h1{margin:0;font-size:1.3rem;font-weight:600;letter-spacing:.01em}
+main{max-width:680px;margin:0 auto;padding:var(--space-3) 20px}
+h2{font-size:1.5rem;font-weight:600;letter-spacing:-.01em;margin:.2em 0}
+h3{font-size:1.05rem;font-weight:600;letter-spacing:.01em;margin:var(--space-3) 0 var(--space-1);padding-bottom:6px;border-bottom:1px solid var(--line)}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--deep);padding-bottom:env(safe-area-inset-bottom);border-top:1px solid rgba(255,255,255,.08)}
+nav button{flex:1;background:none;border:0;color:#aebdb3;font:500 .78rem system-ui,sans-serif;padding:13px 2px;cursor:pointer;min-height:48px}
 nav button[aria-selected=true]{color:#fff;box-shadow:inset 0 3px var(--gold)}
-button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-select,input,textarea{font:inherit;font-size:1rem;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+a{color:var(--gold-dark)}
+:focus-visible{outline:3px solid var(--ring);outline-offset:2px;border-radius:4px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:var(--space-2);align-items:center}
+select,input,textarea{font:inherit;font-size:1rem;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);min-height:44px}
 select{flex:1;min-width:120px}
 input,textarea{width:100%;margin-bottom:10px}textarea{min-height:100px}
-.btn{font:inherit;font-size:.95rem;padding:9px 16px;border-radius:6px;border:1px solid var(--deep);background:var(--deep);color:#fff;cursor:pointer}
+.btn{font:600 .95rem system-ui,sans-serif;padding:11px 18px;border-radius:8px;border:1px solid var(--deep);background:var(--deep);color:#fff;cursor:pointer;min-height:44px;transition:transform .08s ease,opacity .15s ease}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .btn.alt{background:none;color:var(--ink);border-color:var(--line)}
-.btn.del{background:none;color:#a33;border-color:transparent}
-.v{margin:0 0 .6em}.v sup{color:var(--gold);font-weight:700;font-size:.7em;margin-right:5px;font-family:system-ui,sans-serif}
-.v.sel{background:rgba(201,134,43,.18);border-radius:4px}
-.st h2{margin:.2em 0}.st h3{margin:1.4em 0 .3em;font-size:1.05rem}.tag{font:.8rem system-ui,sans-serif;color:var(--mute)}.warn{color:#b5541c}.ref{border-left:3px solid var(--gold);padding-left:12px;margin:12px 0}.hint,.meta{color:var(--mute);font-size:.88rem;font-family:system-ui,sans-serif}
-.entry{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:12px}
-.entry h3{margin:0 0 2px;font-size:1.05rem}.entry p{white-space:pre-wrap;margin:8px 0}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0}
-.stat{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
-.stat div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px;min-width:96px;font:.85rem system-ui,sans-serif}
-.stat b{display:block;font-size:1.4rem;color:var(--gold);font-family:inherit}
-.chip{display:inline-block;font:.8rem system-ui,sans-serif;background:rgba(127,127,127,.16);border:1px solid var(--line);border-radius:20px;padding:4px 12px;margin:2px 6px 2px 0;cursor:pointer;color:var(--ink)}
-.chip.on{background:var(--gold);border-color:var(--gold);color:#1d2623}
+.btn.alt:hover{border-color:var(--gold)}
+.btn.del{background:none;color:var(--warn);border-color:transparent}
+.btn.on{background:var(--gold);border-color:var(--gold);color:#1a140c}
+.v{margin:0 0 .7em}.v sup{color:var(--gold-dark);font-weight:700;font-size:.7em;margin-right:5px;font-family:system-ui,sans-serif}
+.v.sel{background:rgba(201,134,43,.22);background:color-mix(in srgb,var(--gold) 20%,transparent);border-radius:4px}
+.st h2{margin:.2em 0 .3em}.st h3{margin:var(--space-4) 0 var(--space-1);font-size:1.05rem}
+.tag{font:.8rem system-ui,sans-serif;color:var(--mute);letter-spacing:.01em}
+.warn{color:var(--warn)}
+.ref{border-left:3px solid var(--gold);padding-left:14px;margin:var(--space-2) 0}
+.hint,.meta{color:var(--mute);font-size:.88rem;font-family:system-ui,sans-serif}
+.entry{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.entry h3{margin:0 0 2px;font-size:1.05rem;border:0;padding:0}
+.entry p{white-space:pre-wrap;margin:8px 0}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:var(--space-2) 0;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.stat{display:flex;gap:10px;flex-wrap:wrap;margin:var(--space-2) 0}
+.stat div{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;min-width:96px;font:.85rem system-ui,sans-serif}
+.stat b{display:block;font-size:1.5rem;color:var(--gold-dark);font-family:Georgia,serif}
+.chip{display:inline-flex;align-items:center;font:.8rem system-ui,sans-serif;background:rgba(127,127,127,.14);background:color-mix(in srgb,var(--mute) 12%,transparent);border:1px solid var(--line);border-radius:20px;padding:5px 13px;margin:2px 6px 2px 0;cursor:pointer;color:var(--ink);min-height:32px}
+.chip.on{background:var(--gold);border-color:var(--gold);color:#1a140c;font-weight:600}
 .grid{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
-.grid button{width:38px;height:38px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:.8rem system-ui,sans-serif;cursor:pointer}
-.grid button.done{background:var(--gold);border-color:var(--gold);color:#1d2623;font-weight:700}
-label.chk{display:flex;align-items:center;gap:8px;margin:10px 0;font:.9rem system-ui,sans-serif;color:var(--mute)}
-label.chk input{width:auto;margin:0}
-.badge{display:inline-block;font:.78rem system-ui,sans-serif;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:3px 10px;margin:2px 6px 2px 0;color:var(--mute)}
-.btn.on{background:var(--gold);border-color:var(--gold);color:#1d2623}
+.grid button{width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:.8rem system-ui,sans-serif;cursor:pointer}
+.grid button.done{background:var(--gold);border-color:var(--gold);color:#1a140c;font-weight:700}
+label.chk{display:flex;align-items:center;gap:10px;margin:var(--space-2) 0;font:.9rem system-ui,sans-serif;color:var(--mute);min-height:44px}
+label.chk input{width:20px;height:20px;margin:0}
+.badge{display:inline-block;font:.78rem system-ui,sans-serif;background:none;border:1px solid var(--line);border-radius:20px;padding:4px 11px;margin:2px 6px 2px 0;color:var(--mute)}
 .bar{background:var(--line);border-radius:6px;height:10px;overflow:hidden;margin:6px 0}
-.bar>div{background:var(--gold);height:100%}
+.bar>div{background:var(--gold);height:100%;transition:width .4s ease}
 section[hidden]{display:none}
+::selection{background:var(--gold);color:#1a140c}
 @media print{
   header,nav,.noprint{display:none!important}
   body{padding-bottom:0}
@@ -54,9 +80,10 @@ section[hidden]{display:none}
   textarea{border:none;padding:0;min-height:auto}
 }
 </style></head><body>
-<header><h1>My Bible Study</h1><button id="themeBtn" style="position:absolute;top:calc(14px + env(safe-area-inset-top));right:20px;background:none;border:1px solid #f2f0ea55;color:#f2f0ea;border-radius:6px;padding:6px 10px;font:.85rem system-ui,sans-serif;cursor:pointer">🌓</button></header>
-<main>
-<section id="home">
+<a href="#mainContent" class="skip-link">Skip to content</a>
+<header><h1>My Bible Study</h1><button id="themeBtn" aria-label="Toggle color theme, currently automatic" style="position:absolute;top:calc(14px + env(safe-area-inset-top));right:20px;background:none;border:1px solid #f2f0ea55;color:#f2f0ea;border-radius:8px;padding:8px 12px;font:.85rem system-ui,sans-serif;cursor:pointer;min-height:40px;min-width:40px">🌓</button></header>
+<main id="mainContent">
+<section id="home" role="tabpanel" aria-labelledby="tab-home">
   <div id="reminderBanner"></div>
   <div class="stat">
     <div><b id="stStudies">0</b>Studies</div>
@@ -78,7 +105,7 @@ section[hidden]{display:none}
   </div>
   <p class="hint" style="margin-top:20px"><a href="#" id="backupLink" style="color:var(--mute)">⚙️ Backup &amp; restore your data</a></p>
 </section>
-<section id="read" hidden>
+<section id="read" hidden role="tabpanel" aria-labelledby="tab-read">
   <div class="row"><select id="ver" aria-label="Bible version"><option value="kjv">KJV</option><option value="bbe">BBE</option><option value="asv">ASV</option></select><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
   <div id="text"></div>
   <p class="hint">Tap verses to select them, then write about them or save them.</p>
@@ -92,7 +119,7 @@ section[hidden]{display:none}
     <p class="tag">Ask a question about the passage above. AI answers are separate from Scripture — weigh them against it.</p>
     <input id="askQ" placeholder="e.g. What does this mean for me today?" aria-label="Question" maxlength="300">
     <div class="row"><button class="btn" id="askSend">Ask</button><button class="btn alt" id="askCancel">Cancel</button></div>
-    <p class="meta" id="askMsg"></p>
+    <p class="meta" id="askMsg" aria-live="polite"></p>
     <div id="askAns"></div>
   </div>
   <div id="snapPanel" class="panel" hidden>
@@ -110,7 +137,7 @@ section[hidden]{display:none}
   <div id="chapPanel" class="panel" hidden></div>
   <p class="hint" id="tr"></p>
 </section>
-<section id="study" hidden>
+<section id="study" hidden role="tabpanel" aria-labelledby="tab-study">
 <div class="row"><button class="btn alt" id="modeStudy">📖 Study</button><button class="btn alt" id="modeQuiz">🧠 Quiz</button></div>
 <div id="stForm"><input id="topic" maxlength="200" placeholder="What do you want to explore? (e.g. God's purpose for my life)" aria-label="Topic">
 <label class="chk"><input type="checkbox" id="seriesChk"> This is a multi-week series</label>
@@ -150,16 +177,16 @@ section[hidden]{display:none}
   <option value="advanced">Advanced</option>
 </select></div>
 <div class="row"><select id="depth" aria-label="Length"><option value="quick">Quick (5–10 min)</option><option value="standard" selected>Standard (20–30 min)</option><option value="deep">Deep (45+ min)</option></select><button class="btn" id="gen">Start study</button></div>
-<p class="meta" id="stMsg">Creating a new study needs internet. Saved studies work offline.</p><div id="stList"></div></div>
+<p class="meta" id="stMsg" aria-live="polite">Creating a new study needs internet. Saved studies work offline.</p><div id="stList"></div></div>
 <div id="quizForm" hidden><input id="qTopic" maxlength="200" placeholder="What should the quiz cover? (e.g. The Book of Ruth)" aria-label="Quiz topic">
 <div class="row"><select id="qCount" aria-label="Number of questions"><option value="5">5 questions</option><option value="10" selected>10 questions</option><option value="15">15 questions</option></select>
 <select id="qDiff" aria-label="Difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select>
 <button class="btn" id="qGen">Generate quiz</button></div>
-<p class="meta" id="qMsg">Creating a new quiz needs internet. Saved quizzes work offline.</p><div id="quizList"></div></div>
+<p class="meta" id="qMsg" aria-live="polite">Creating a new quiz needs internet. Saved quizzes work offline.</p><div id="quizList"></div></div>
 <div id="stView" class="st" hidden></div>
 <div id="quizView" class="st" hidden></div>
 </section>
-<section id="notes" hidden>
+<section id="notes" hidden role="tabpanel" aria-labelledby="tab-notes">
   <div class="row"><button class="btn alt" id="modeVault">🔖 Vault</button><button class="btn alt" id="modeJournal">📝 Journal</button></div>
   <div id="vaultView">
     <div id="vaultTags"></div>
@@ -179,10 +206,10 @@ section[hidden]{display:none}
   <div class="row"><button class="btn" id="exp">Download backup</button>
   <button class="btn alt" id="impBtn">Restore from backup</button></div>
   <input type="file" id="imp" accept=".json" hidden>
-  <p class="meta" id="status"></p>
+  <p class="meta" id="status" aria-live="polite"></p>
 </section>
 </main>
-<nav role="tablist"><button data-t="home" aria-selected="true">Home</button><button data-t="read">Read</button><button data-t="study">Study</button><button data-t="notes">Notes</button></nav>
+<nav role="tablist" aria-label="Main sections"><button data-t="home" role="tab" aria-selected="true" aria-controls="home" id="tab-home">Home</button><button data-t="read" role="tab" aria-selected="false" aria-controls="read" id="tab-read">Read</button><button data-t="study" role="tab" aria-selected="false" aria-controls="study" id="tab-study">Study</button><button data-t="notes" role="tab" aria-selected="false" aria-controls="notes" id="tab-notes">Notes</button></nav>
 <script>
 const $=id=>document.getElementById(id);
 const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
@@ -775,7 +802,8 @@ $('imp').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text(
 
 try{const sv=localStorage.getItem('ver');if(sv)$('ver').value=sv}catch{}
 function applyTheme(t){if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);
-  $('themeBtn').textContent=t==='light'?'☀️':t==='dark'?'🌙':'🌓';}
+  $('themeBtn').textContent=t==='light'?'☀️':t==='dark'?'🌙':'🌓';
+  $('themeBtn').setAttribute('aria-label','Color theme: '+(t==='auto'?'automatic':t)+'. Tap to change.');}
 let theme=(()=>{try{return localStorage.getItem('theme')||'auto'}catch{return 'auto'}})();
 applyTheme(theme);
 $('themeBtn').onclick=()=>{theme=theme==='auto'?'light':theme==='light'?'dark':'auto';try{localStorage.setItem('theme',theme)}catch{};applyTheme(theme);};
