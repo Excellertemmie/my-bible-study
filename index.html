@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#16302b">
 <link rel="icon" href="icon.svg">
 <script defer src="/_vercel/insights/script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#f7f4ec;--paper:#fcfaf4;--ink:#241f16;--mute:#6b6358;--deep:#122b24;--deep-ink:#0c1714;
@@ -103,8 +104,13 @@ section[hidden]{display:none}
     <button class="btn alt" data-go="read">📖 Read Scripture</button>
     <button class="btn alt" data-go="study">🔎 Explore a topic</button>
     <button class="btn alt" id="goVault">🔖 My saved verses</button>
+    <button class="btn alt" id="goTogether">📖 Study Together</button>
   </div>
   <p class="hint" style="margin-top:20px"><a href="#" id="backupLink" style="color:var(--mute)">⚙️ Backup &amp; restore your data</a></p>
+</section>
+<section id="together" hidden>
+  <button class="btn alt noprint" id="togetherBack" style="margin-bottom:16px">← Back to Home</button>
+  <div id="togetherView"></div>
 </section>
 <section id="read" hidden role="tabpanel" aria-labelledby="tab-read">
   <div class="row"><select id="ver" aria-label="Bible version"><option value="kjv">KJV</option><option value="bbe">BBE</option><option value="asv">ASV</option></select><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
@@ -215,6 +221,25 @@ section[hidden]{display:none}
 const $=id=>document.getElementById(id);
 const h=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 let bible={books:{}},editing=null,picked=new Set(),vaultFilter=null,quizMode=false;
+
+// --- Study Together (Phase 1): Supabase project settings ---
+// Replace these two values with your own Supabase project's URL and anon (public) key.
+// The anon key is meant to be public — real security comes from Row Level Security rules in the database, not from hiding this key.
+const SUPABASE_URL='https://vxzittsgudnvnrkcbiux.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4eml0dHNndWRudm5ya2NiaXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTY4NDIsImV4cCI6MjEwNjQ5Mjg0Mn0.McTA3BvEwQYEKu47K62csbqwYN6Uv7ozejbkiSezsko';
+let sb=null,sbUser=null;
+function sbReady(){return SUPABASE_URL.includes('YOUR-PROJECT-REF')===false && typeof window.supabase!=='undefined';}
+async function ensureAuth(){if(!sb){if(typeof window.supabase==='undefined')throw new Error('Study Together could not load. Check your internet connection and reload.');
+    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);}
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){sbUser=session.user;return sbUser}
+  const {data,error}=await sb.auth.signInAnonymously();
+  if(error)throw new Error('Could not connect: '+error.message);
+  sbUser=data.user;return sbUser;}
+function getStudyName(){let n=localStorage.getItem('studyName');
+  if(!n){n=(prompt('What name should your study partner see?')||'').trim()||'Friend';localStorage.setItem('studyName',n)}
+  return n;}
+function roomCode(){return Array.from({length:8},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]).join('');}
 const store={get:()=>{try{return JSON.parse(localStorage.getItem('entries')||'[]')}catch{return[]}},
   set:v=>{try{localStorage.setItem('entries',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full or blocked.')}}};
 const S={get:()=>{try{return JSON.parse(localStorage.getItem('studies')||'[]')}catch{return[]}},set:v=>{try{localStorage.setItem('studies',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full.')}}};
@@ -253,6 +278,108 @@ $('goVault').onclick=()=>{document.querySelector('[data-t=notes]').click();setNo
 $('modeVault').onclick=()=>setNotesMode(true);$('modeJournal').onclick=()=>setNotesMode(false);
 $('backupLink').onclick=e=>{e.preventDefault();['home','read','study','notes'].forEach(s=>$(s).hidden=true);$('backup').hidden=false;};
 $('backBtn').onclick=()=>document.querySelector('[data-t=home]').click();
+
+function openTogether(){['home','read','study','notes'].forEach(s=>$(s).hidden=true);$('backup').hidden=true;$('together').hidden=false;}
+$('goTogether').onclick=()=>{openTogether();togetherStart()};
+$('togetherBack').onclick=()=>{history.replaceState(null,'',location.pathname);document.querySelector('[data-t=home]').click()};
+
+function togetherStart(){const box=$('togetherView');box.innerHTML='';
+  if(!sbReady()){box.append(h('p','panel warn','Study Together isn\'t set up yet on this deployment. The app\'s developer needs to add Supabase connection details first.'));return}
+  box.append(h('h2','','📖 Study Together'),h('p','','Read the same passage as someone else, even when you\'re apart.'));
+  const row=h('div','row');
+  const create=h('button','btn','Create a Study Together');create.onclick=togetherCreateForm;
+  const join=h('button','btn alt','Join a Study');join.onclick=togetherJoinForm;
+  row.append(create,join);box.append(row);}
+
+function togetherCreateForm(){const box=$('togetherView');box.innerHTML='';
+  const back=h('button','btn alt','← Back');back.onclick=togetherStart;box.append(back);
+  box.append(h('h2','','Create a Study Together'));
+  const saved=S.get().filter(x=>!x.study.seriesId);
+  if(saved.length){box.append(h('p','tag','Use one of your existing studies:'));
+    const sel=document.createElement('select');sel.setAttribute('aria-label','Existing study');
+    sel.add(new Option('— Choose a saved study —',''));
+    saved.sort((a,b)=>b.date.localeCompare(a.date)).forEach(x=>sel.add(new Option(x.study.title,x.id)));
+    box.append(sel);
+    const useBtn=h('button','btn','Use this study');useBtn.style.marginBottom='20px';
+    useBtn.onclick=()=>{if(!sel.value){alert('Choose a study first.');return}const x=S.get().find(y=>y.id===sel.value);createRoomFromStudy(x.study)};
+    box.append(useBtn);}
+  box.append(h('p','tag','Or create a new quick study:'));
+  const topic=document.createElement('input');topic.placeholder='Topic (e.g. Trusting God in hard times)';topic.setAttribute('aria-label','New topic');
+  const genBtn=h('button','btn alt','Generate & create room');
+  const msg=h('p','meta','');msg.setAttribute('aria-live','polite');
+  genBtn.onclick=async()=>{const t=topic.value.trim();if(!t)return;
+    let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
+    genBtn.disabled=true;msg.textContent='Preparing a short study…';
+    try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic:t,depth:'quick',studyType:'personal',audience:'general',level:'intermediate'})});
+      if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode.')}
+      const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');
+      localStorage.setItem('pass',pass);msg.textContent='';createRoomFromStudy(d);
+    }catch(e){msg.textContent=navigator.onLine?e.message:'You are offline.';genBtn.disabled=false}};
+  box.append(topic,genBtn,msg);}
+
+async function createRoomFromStudy(study){const box=$('togetherView');box.innerHTML='<p class="hint">Setting up your study room…</p>';
+  try{await ensureAuth();
+    const passageText=study.passages.map(r=>{const vs=parseRef(r);return {ref:r,verses:vs?vs.map(([n,t])=>({n,t})):null}});
+    const code=roomCode();
+    const {data,error}=await sb.from('study_rooms').insert({code,title:study.title,passages:study.passages,passage_text:passageText,created_by:sbUser.id}).select().single();
+    if(error)throw error;
+    await sb.from('study_participants').insert({room_id:data.id,user_id:sbUser.id,display_name:getStudyName()});
+    openRoom(data.code);
+  }catch(e){box.innerHTML='';box.append(h('p','panel warn','Could not create the room: '+(e.message||e)));}}
+
+function togetherJoinForm(prefillCode){const box=$('togetherView');box.innerHTML='';
+  const back=h('button','btn alt','← Back');back.onclick=togetherStart;box.append(back);
+  box.append(h('h2','','Join a Study'));
+  const code=document.createElement('input');code.placeholder='Study code (e.g. FAITH4821)';code.setAttribute('aria-label','Study code');
+  if(prefillCode)code.value=prefillCode;
+  const btn=h('button','btn','Join');const msg=h('p','meta','');msg.setAttribute('aria-live','polite');
+  btn.onclick=()=>joinRoom(code.value.trim().toUpperCase(),msg,btn);
+  box.append(code,btn,msg);
+  if(prefillCode)joinRoom(prefillCode,msg,btn);}
+
+async function joinRoom(code,msg,btn){if(!code){msg.textContent='Enter a study code.';return}
+  if(btn)btn.disabled=true;msg.textContent='Joining…';
+  try{await ensureAuth();
+    const {data:room,error}=await sb.from('study_rooms').select('*').eq('code',code).maybeSingle();
+    if(error)throw error;
+    if(!room){msg.textContent='No study found with that code. Check it and try again.';if(btn)btn.disabled=false;return}
+    await sb.from('study_participants').upsert({room_id:room.id,user_id:sbUser.id,display_name:getStudyName()},{onConflict:'room_id,user_id'});
+    openRoom(room.code);
+  }catch(e){msg.textContent='Could not join: '+(e.message||e);if(btn)btn.disabled=false}}
+
+async function openRoom(code){history.replaceState(null,'',location.pathname+'?room='+code);
+  const box=$('togetherView');box.innerHTML='<p class="hint">Loading your shared study…</p>';
+  try{await ensureAuth();
+    const {data:room,error}=await sb.from('study_rooms').select('*').eq('code',code).maybeSingle();
+    if(error)throw error;
+    if(!room){box.innerHTML='';const bk=h('button','btn alt','← Back');bk.onclick=togetherStart;
+      box.append(bk,h('p','panel warn','This study link isn\'t valid or may have been removed.'));return}
+    const {data:people}=await sb.from('study_participants').select('display_name,user_id').eq('room_id',room.id);
+    box.innerHTML='';
+    const back=h('button','btn alt','← Back');back.onclick=togetherStart;box.append(back);
+    box.append(h('h2','','📖 '+room.title));
+    (room.passages||[]).forEach(ref=>box.append(h('p','badge',ref)));
+    const invite=h('div','panel');
+    invite.append(h('strong','','Invite your partner'));
+    const link=location.origin+location.pathname+'?room='+room.code;
+    const linkBox=document.createElement('input');linkBox.value=link;linkBox.readOnly=true;linkBox.setAttribute('aria-label','Invite link');linkBox.onclick=()=>linkBox.select();
+    const copyBtn=h('button','btn alt','Copy link');
+    copyBtn.onclick=()=>{navigator.clipboard?navigator.clipboard.writeText(link).then(()=>{copyBtn.textContent='Copied ✓';setTimeout(()=>copyBtn.textContent='Copy link',1500)}):(linkBox.select(),document.execCommand('copy'))};
+    const codeRow=h('p','meta','Study Code: '+room.code);
+    invite.append(linkBox,copyBtn,codeRow);box.append(invite);
+    const peopleBox=h('div','panel');peopleBox.append(h('strong','','Studying together'));
+    (people||[]).forEach(p=>peopleBox.append(h('div','','🟢 '+(p.user_id===sbUser.id?'You':p.display_name))));
+    box.append(peopleBox);
+    box.append(h('h3','','Read the passage'));
+    (room.passage_text||[]).forEach(p=>{const d=h('div','ref');d.append(h('strong','',p.ref));
+      if(p.verses)p.verses.forEach(v=>{const vp=h('p','v');vp.append(h('sup','',v.n),document.createTextNode(v.t));d.append(vp)});
+      else d.append(h('p','tag warn','Verse text wasn\'t available when this study was created.'));
+      box.append(d)});
+    box.append(h('p','hint','More of Study Together — reading status, questions, and discussion — is coming in the next update.'));
+  }catch(e){box.innerHTML='';box.append(h('p','panel warn','Could not load this study: '+(e.message||e)));}}
+
+(function checkTogetherLink(){const m=location.search.match(/[?&]room=([A-Z0-9]+)/i);
+  if(m){openTogether();togetherJoinForm(m[1].toUpperCase())}})();
 
 function load(keep){const v=$('ver').value;try{localStorage.setItem('ver',v)}catch{}
   fetch('bible-'+v+'.json').then(r=>r.json()).then(d=>{bible=d;$('tr').textContent='Translation: '+d.translation+' (public domain)';
