@@ -225,9 +225,11 @@ let bible={books:{}},editing=null,picked=new Set(),vaultFilter=null,quizMode=fal
 // --- Study Together (Phase 1): Supabase project settings ---
 // Replace these two values with your own Supabase project's URL and anon (public) key.
 // The anon key is meant to be public — real security comes from Row Level Security rules in the database, not from hiding this key.
-const SUPABASE_URL='https://vxzittsgudnvnrkcbiux.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4eml0dHNndWRudm5ya2NiaXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTY4NDIsImV4cCI6MjEwNjQ5Mjg0Mn0.McTA3BvEwQYEKu47K62csbqwYN6Uv7ozejbkiSezsko';
-let sb=null,sbUser=null;
+const SUPABASE_URL='https://YOUR-PROJECT-REF.supabase.co';
+const SUPABASE_ANON_KEY='YOUR-ANON-PUBLIC-KEY';
+let sb=null,sbUser=null,currentChannel=null,currentRoom=null;
+function leaveChannel(){if(currentChannel){try{sb.removeChannel(currentChannel)}catch{}currentChannel=null}currentRoom=null;}
+const STATUS_LABEL={joined:'Joined',reading:'Reading',completed_reading:'Finished reading'};
 function sbReady(){return SUPABASE_URL.includes('YOUR-PROJECT-REF')===false && typeof window.supabase!=='undefined';}
 async function ensureAuth(){if(!sb){if(typeof window.supabase==='undefined')throw new Error('Study Together could not load. Check your internet connection and reload.');
     sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);}
@@ -281,9 +283,9 @@ $('backBtn').onclick=()=>document.querySelector('[data-t=home]').click();
 
 function openTogether(){['home','read','study','notes'].forEach(s=>$(s).hidden=true);$('backup').hidden=true;$('together').hidden=false;}
 $('goTogether').onclick=()=>{openTogether();togetherStart()};
-$('togetherBack').onclick=()=>{history.replaceState(null,'',location.pathname);document.querySelector('[data-t=home]').click()};
+$('togetherBack').onclick=()=>{leaveChannel();history.replaceState(null,'',location.pathname);document.querySelector('[data-t=home]').click()};
 
-function togetherStart(){const box=$('togetherView');box.innerHTML='';
+function togetherStart(){leaveChannel();const box=$('togetherView');box.innerHTML='';
   if(!sbReady()){box.append(h('p','panel warn','Study Together isn\'t set up yet on this deployment. The app\'s developer needs to add Supabase connection details first.'));return}
   box.append(h('h2','','📖 Study Together'),h('p','','Read the same passage as someone else, even when you\'re apart.'));
   const row=h('div','row');
@@ -347,14 +349,14 @@ async function joinRoom(code,msg,btn){if(!code){msg.textContent='Enter a study c
     openRoom(room.code);
   }catch(e){msg.textContent='Could not join: '+(e.message||e);if(btn)btn.disabled=false}}
 
-async function openRoom(code){history.replaceState(null,'',location.pathname+'?room='+code);
+async function openRoom(code){leaveChannel();history.replaceState(null,'',location.pathname+'?room='+code);
   const box=$('togetherView');box.innerHTML='<p class="hint">Loading your shared study…</p>';
   try{await ensureAuth();
     const {data:room,error}=await sb.from('study_rooms').select('*').eq('code',code).maybeSingle();
     if(error)throw error;
     if(!room){box.innerHTML='';const bk=h('button','btn alt','← Back');bk.onclick=togetherStart;
       box.append(bk,h('p','panel warn','This study link isn\'t valid or may have been removed.'));return}
-    const {data:people}=await sb.from('study_participants').select('display_name,user_id').eq('room_id',room.id);
+    currentRoom=room;
     box.innerHTML='';
     const back=h('button','btn alt','← Back');back.onclick=togetherStart;box.append(back);
     box.append(h('h2','','📖 '+room.title));
@@ -367,16 +369,52 @@ async function openRoom(code){history.replaceState(null,'',location.pathname+'?r
     copyBtn.onclick=()=>{navigator.clipboard?navigator.clipboard.writeText(link).then(()=>{copyBtn.textContent='Copied ✓';setTimeout(()=>copyBtn.textContent='Copy link',1500)}):(linkBox.select(),document.execCommand('copy'))};
     const codeRow=h('p','meta','Study Code: '+room.code);
     invite.append(linkBox,copyBtn,codeRow);box.append(invite);
-    const peopleBox=h('div','panel');peopleBox.append(h('strong','','Studying together'));
-    (people||[]).forEach(p=>peopleBox.append(h('div','','🟢 '+(p.user_id===sbUser.id?'You':p.display_name))));
-    box.append(peopleBox);
+    const presenceBox=h('div','panel');presenceBox.id='presenceBox';box.append(presenceBox);
     box.append(h('h3','','Read the passage'));
     (room.passage_text||[]).forEach(p=>{const d=h('div','ref');d.append(h('strong','',p.ref));
       if(p.verses)p.verses.forEach(v=>{const vp=h('p','v');vp.append(h('sup','',v.n),document.createTextNode(v.t));d.append(vp)});
       else d.append(h('p','tag warn','Verse text wasn\'t available when this study was created.'));
       box.append(d)});
-    box.append(h('p','hint','More of Study Together — reading status, questions, and discussion — is coming in the next update.'));
+    const nextBox=h('div');nextBox.id='nextBox';box.append(nextBox);
+
+    await refreshPresence(room.id);
+    currentChannel=sb.channel('room-'+room.id)
+      .on('postgres_changes',{event:'*',schema:'public',table:'study_participants',filter:'room_id=eq.'+room.id},()=>refreshPresence(room.id))
+      .subscribe();
   }catch(e){box.innerHTML='';box.append(h('p','panel warn','Could not load this study: '+(e.message||e)));}}
+
+async function refreshPresence(roomId){const {data:people,error}=await sb.from('study_participants').select('display_name,user_id,status').eq('room_id',roomId);
+  if(error||!$('presenceBox'))return;
+  const box=$('presenceBox');box.innerHTML='';box.append(h('strong','','Studying together'));
+  (people||[]).forEach(p=>{const row=h('div');row.style.cssText='display:flex;align-items:center;gap:8px;margin:4px 0';
+    const dot=(p.status==='completed_reading')?'✓':'🟢';
+    row.append(h('span','',dot+' '+(p.user_id===sbUser.id?'You':p.display_name)+' — '+(STATUS_LABEL[p.status]||'Joined')));
+    box.append(row)});
+  const me=(people||[]).find(p=>p.user_id===sbUser.id);
+  const others=(people||[]).filter(p=>p.user_id!==sbUser.id);
+  const allDone=(people||[]).length>1&&(people||[]).every(p=>p.status==='completed_reading');
+
+  const actionRow=h('div','row');actionRow.style.marginTop='10px';
+  if(!me||me.status!=='completed_reading'){
+    const btn=h('button','btn',(!me||me.status==='joined')?"I'm Reading":"I'm Done Reading");
+    btn.onclick=async()=>{btn.disabled=true;const next=(!me||me.status==='joined')?'reading':'completed_reading';
+      await sb.from('study_participants').update({status:next}).eq('room_id',roomId).eq('user_id',sbUser.id);};
+    actionRow.append(btn);
+  }
+  box.append(actionRow);
+
+  if(others.length&&!allDone){
+    const waitingOn=others.filter(p=>p.status!=='completed_reading').map(p=>p.display_name);
+    if(waitingOn.length&&me&&me.status==='completed_reading')
+      box.append(h('p','meta','Waiting for '+waitingOn.join(', ')+' to finish reading. Take your time — no rush on their end either.'));
+    else if(others.some(p=>p.status==='completed_reading'))
+      box.append(h('p','meta',others.filter(p=>p.status==='completed_reading').map(p=>p.display_name).join(', ')+' is ready. Take your time reading.'));
+  }
+
+  const nextBox=$('nextBox');if(nextBox){nextBox.innerHTML='';
+    if(allDone){nextBox.append(h('p','panel','✓ You\'ve both finished the passage.'));
+      nextBox.append(h('p','hint','Questions and discussion are coming in the next update — for now, this is a great moment to talk about what you just read.'));}
+  }}
 
 (function checkTogetherLink(){const m=location.search.match(/[?&]room=([A-Z0-9]+)/i);
   if(m){openTogether();togetherJoinForm(m[1].toUpperCase())}})();
