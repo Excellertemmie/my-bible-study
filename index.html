@@ -322,8 +322,10 @@ function togetherCreateForm(){const box=$('togetherView');box.innerHTML='';
 async function createRoomFromStudy(study){const box=$('togetherView');box.innerHTML='<p class="hint">Setting up your study room…</p>';
   try{await ensureAuth();
     const passageText=study.passages.map(r=>{const vs=parseRef(r);return {ref:r,verses:vs?vs.map(([n,t])=>({n,t})):null}});
+    const qs=study.questions||{};
+    const questions=[qs.observation&&qs.observation[0],qs.application&&qs.application[0]].filter(Boolean).map((text,i)=>({index:i,text}));
     const code=roomCode();
-    const {data,error}=await sb.from('study_rooms').insert({code,title:study.title,passages:study.passages,passage_text:passageText,created_by:sbUser.id}).select().single();
+    const {data,error}=await sb.from('study_rooms').insert({code,title:study.title,passages:study.passages,passage_text:passageText,questions,prayer:study.prayer||'',created_by:sbUser.id}).select().single();
     if(error)throw error;
     await sb.from('study_participants').insert({room_id:data.id,user_id:sbUser.id,display_name:getStudyName()});
     openRoom(data.code);
@@ -380,6 +382,7 @@ async function openRoom(code){leaveChannel();history.replaceState(null,'',locati
     await refreshPresence(room.id);
     currentChannel=sb.channel('room-'+room.id)
       .on('postgres_changes',{event:'*',schema:'public',table:'study_participants',filter:'room_id=eq.'+room.id},()=>refreshPresence(room.id))
+      .on('postgres_changes',{event:'*',schema:'public',table:'study_answers',filter:'room_id=eq.'+room.id},()=>refreshPresence(room.id))
       .subscribe();
   }catch(e){box.innerHTML='';box.append(h('p','panel warn','Could not load this study: '+(e.message||e)));}}
 
@@ -413,8 +416,46 @@ async function refreshPresence(roomId){const {data:people,error}=await sb.from('
 
   const nextBox=$('nextBox');if(nextBox){nextBox.innerHTML='';
     if(allDone){nextBox.append(h('p','panel','✓ You\'ve both finished the passage.'));
-      nextBox.append(h('p','hint','Questions and discussion are coming in the next update — for now, this is a great moment to talk about what you just read.'));}
-  }}
+      await renderReflection(people,nextBox);}}}
+
+async function renderReflection(people,nextBox){const room=currentRoom;if(!room)return;
+  const questions=room.questions||[];
+  if(!questions.length){nextBox.append(h('p','hint','This study doesn\'t have reflection questions saved — nothing more to do here yet.'));return}
+  const {data:answers}=await sb.from('study_answers').select('*').eq('room_id',room.id);
+  const byQ={};(answers||[]).forEach(a=>{(byQ[a.question_index]=byQ[a.question_index]||[]).push(a)});
+
+  let activeIndex=-1;
+  for(let i=0;i<questions.length;i++){
+    const qAns=byQ[i]||[];
+    const bothAnswered=people.length>1&&people.every(p=>qAns.some(a=>a.user_id===p.user_id));
+    if(bothAnswered){
+      const block=h('div','panel');
+      block.append(h('h3','','Question '+(i+1)),h('p','',questions[i].text));
+      qAns.forEach(a=>{const name=a.user_id===sbUser.id?'Your response':((people.find(p=>p.user_id===a.user_id)||{}).display_name||'Your partner')+"'s response";
+        block.append(h('strong','',name),h('p','',a.answer))});
+      nextBox.append(block);
+    }else{activeIndex=i;break}
+  }
+  if(activeIndex===-1){nextBox.append(h('p','hint','Prayer and completing the study together are coming in the next update — for now, enjoy discussing what you both shared.'));return}
+
+  const q=questions[activeIndex];
+  const qBox=h('div','panel');
+  qBox.append(h('h3','','Question '+(activeIndex+1)),h('p','',q.text));
+  const mine=(byQ[activeIndex]||[]).find(a=>a.user_id===sbUser.id);
+  if(mine){
+    qBox.append(h('p','','✓ Your answer has been submitted.'),h('p','',mine.answer));
+    const waitingNames=people.filter(p=>p.user_id!==sbUser.id&&!(byQ[activeIndex]||[]).some(a=>a.user_id===p.user_id)).map(p=>p.display_name);
+    if(waitingNames.length)qBox.append(h('p','meta','Waiting for '+waitingNames.join(', ')+' to answer…'));
+  }else{
+    qBox.append(h('p','tag','🔒 Your partner\'s response will be revealed when you\'ve both answered.'));
+    const ta=document.createElement('textarea');ta.setAttribute('aria-label','Your answer to question '+(activeIndex+1));ta.placeholder='Your response…';
+    const submitBtn=h('button','btn','Submit Answer');
+    submitBtn.onclick=async()=>{const val=ta.value.trim();if(!val)return;submitBtn.disabled=true;
+      const {error}=await sb.from('study_answers').insert({room_id:room.id,question_index:activeIndex,question_text:q.text,user_id:sbUser.id,answer:val});
+      if(error){alert('Could not submit your answer: '+error.message);submitBtn.disabled=false}};
+    qBox.append(ta,submitBtn);
+  }
+  nextBox.append(qBox);}
 
 (function checkTogetherLink(){const m=location.search.match(/[?&]room=([A-Z0-9]+)/i);
   if(m){openTogether();togetherJoinForm(m[1].toUpperCase())}})();
