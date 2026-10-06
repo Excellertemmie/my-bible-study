@@ -226,10 +226,9 @@ let bible={books:{}},editing=null,picked=new Set(),vaultFilter=null,quizMode=fal
 // Replace these two values with your own Supabase project's URL and anon (public) key.
 // The anon key is meant to be public — real security comes from Row Level Security rules in the database, not from hiding this key.
 const SUPABASE_URL='https://vxzittsgudnvnrkcbiux.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4eml0dHNndWRudm5ya2NiaXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTY4NDIsImV4cCI6MjEwNjQ5Mjg0Mn0.McTA3BvEwQYEKu47K62csbqwYN6Uv7ozejbkiSezsko';
-let sb=null,sbUser=null,currentChannel=null,currentRoom=null;
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4eml0dHNndWRudm5ya2NiaXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTY4NDIsImV4cCI6MjEwNjQ5Mjg0Mn0.McTA3BvEwQYEKu47K62csbqwYN6Uv7ozejbkiSezsko'; let sb=null,sbUser=null,currentChannel=null,currentRoom=null;
 function leaveChannel(){if(currentChannel){try{sb.removeChannel(currentChannel)}catch{}currentChannel=null}currentRoom=null;}
-const STATUS_LABEL={joined:'Joined',reading:'Reading',completed_reading:'Finished reading'};
+const STATUS_LABEL={joined:'Joined',reading:'Reading',completed_reading:'Finished reading',ready_to_pray:'Ready to pray',completed:'Completed'};
 function sbReady(){return SUPABASE_URL.includes('YOUR-PROJECT-REF')===false && typeof window.supabase!=='undefined';}
 async function ensureAuth(){if(!sb){if(typeof window.supabase==='undefined')throw new Error('Study Together could not load. Check your internet connection and reload.');
     sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);}
@@ -390,7 +389,7 @@ async function refreshPresence(roomId){const {data:people,error}=await sb.from('
   if(error||!$('presenceBox'))return;
   const box=$('presenceBox');box.innerHTML='';box.append(h('strong','','Studying together'));
   (people||[]).forEach(p=>{const row=h('div');row.style.cssText='display:flex;align-items:center;gap:8px;margin:4px 0';
-    const dot=(p.status==='completed_reading')?'✓':'🟢';
+    const dot=['completed_reading','ready_to_pray','completed'].includes(p.status)?'✓':'🟢';
     row.append(h('span','',dot+' '+(p.user_id===sbUser.id?'You':p.display_name)+' — '+(STATUS_LABEL[p.status]||'Joined')));
     box.append(row)});
   const me=(people||[]).find(p=>p.user_id===sbUser.id);
@@ -436,7 +435,37 @@ async function renderReflection(people,nextBox){const room=currentRoom;if(!room)
       nextBox.append(block);
     }else{activeIndex=i;break}
   }
-  if(activeIndex===-1){nextBox.append(h('p','hint','Prayer and completing the study together are coming in the next update — for now, enjoy discussing what you both shared.'));return}
+  if(activeIndex===-1){
+    const me=people.find(p=>p.user_id===sbUser.id);
+    const allReady=people.length>1&&people.every(p=>p.status==='ready_to_pray'||p.status==='completed');
+    const prayerBox=h('div','panel');
+    prayerBox.append(h('h3','','🙏 Prayer'));
+    prayerBox.append(h('p','',room.prayer&&room.prayer.trim()?room.prayer:'No prayer was saved with this study — take a moment to pray together in your own words.'));
+    if(allReady){
+      if(me&&me.status!=='completed')sb.from('study_participants').update({status:'completed'}).eq('room_id',room.id).eq('user_id',sbUser.id);
+      nextBox.append(prayerBox);
+      const done=h('div','panel');
+      done.append(h('h2','','✓ Study Completed Together'),h('p','',room.title));
+      done.append(h('p','','✓ Passage read together'));
+      questions.forEach((q,i)=>done.append(h('p','','✓ Question '+(i+1)+' shared')));
+      done.append(h('p','','✓ Prayer')); 
+      const row=h('div','row');
+      const again=h('button','btn','Study Together Again');again.onclick=togetherStart;
+      const home=h('button','btn alt','Return to Dashboard');home.onclick=()=>$('togetherBack').click();
+      row.append(again,home);done.append(row);
+      nextBox.append(done);
+      return;
+    }
+    if(me&&(me.status==='ready_to_pray'||me.status==='completed')){
+      prayerBox.append(h('p','meta','✓ You\'re ready. Waiting for your partner…'));
+    }else{
+      const btn=h('button','btn',"I'm ready to pray");
+      btn.onclick=async()=>{btn.disabled=true;await sb.from('study_participants').update({status:'ready_to_pray'}).eq('room_id',room.id).eq('user_id',sbUser.id)};
+      prayerBox.append(btn);
+    }
+    nextBox.append(prayerBox);
+    return;
+  }
 
   const q=questions[activeIndex];
   const qBox=h('div','panel');
