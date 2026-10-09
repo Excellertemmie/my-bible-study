@@ -74,6 +74,11 @@ label.chk input{width:20px;height:20px;margin:0}
 .bar{background:var(--line);border-radius:6px;height:10px;overflow:hidden;margin:6px 0}
 .bar>div{background:var(--gold);height:100%;transition:width .4s ease}
 section[hidden]{display:none}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:500;padding:16px}
+.modal[hidden]{display:none}
+.modal-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;max-width:380px;width:100%;max-height:92vh;overflow:auto}
+.modes{display:flex;gap:8px;margin-bottom:var(--space-2)}.modes .btn{flex:1;padding:10px 6px}
+.back{background:none;border:0;color:var(--gold-dark);font:600 .95rem system-ui,sans-serif;padding:8px 0;min-height:44px;cursor:pointer}
 ::selection{background:var(--gold);color:#1a140c}
 @media print{
   header,nav,.noprint{display:none!important}
@@ -104,12 +109,11 @@ section[hidden]{display:none}
     <button class="btn alt" data-go="read">📖 Read Scripture</button>
     <button class="btn alt" data-go="study">🔎 Explore a topic</button>
     <button class="btn alt" id="goVault">🔖 My saved verses</button>
-    <button class="btn alt" id="goTogether">📖 Study Together</button>
   </div>
   <p class="hint" style="margin-top:20px"><a href="#" id="backupLink" style="color:var(--mute)">⚙️ Backup &amp; restore your data</a></p>
 </section>
 <section id="together" hidden>
-  <button class="btn alt noprint" id="togetherBack" style="margin-bottom:16px">← Back to Home</button>
+  <div class="modes noprint"><button class="btn alt" id="tmStudy">📖 Study</button><button class="btn alt" id="tmQuiz">🧠 Quiz</button><button class="btn on" id="tmTogether">👥 Together</button></div>
   <div id="togetherView"></div>
 </section>
 <section id="read" hidden role="tabpanel" aria-labelledby="tab-read">
@@ -129,11 +133,6 @@ section[hidden]{display:none}
     <p class="meta" id="askMsg" aria-live="polite"></p>
     <div id="askAns"></div>
   </div>
-  <div id="snapPanel" class="panel" hidden>
-    <canvas id="snapCanvas" width="1080" height="1920" style="width:100%;max-width:320px;display:block;margin:0 auto 12px;border-radius:10px;border:1px solid var(--line)"></canvas>
-    <div class="row" id="snapStyles" style="justify-content:center"></div>
-    <div class="row" style="justify-content:center"><button class="btn" id="snapDownload">Download</button><button class="btn alt" id="snapShare">Share</button><button class="btn alt" id="snapCancel">Cancel</button></div>
-  </div>
   <div class="row"><button class="btn alt" id="toggleProg">Book progress</button></div>
   <label class="chk"><input type="checkbox" id="readChk"> I've read this chapter</label>
   <div id="progPanel" hidden>
@@ -145,7 +144,7 @@ section[hidden]{display:none}
   <p class="hint" id="tr"></p>
 </section>
 <section id="study" hidden role="tabpanel" aria-labelledby="tab-study">
-<div class="row"><button class="btn alt" id="modeStudy">📖 Study</button><button class="btn alt" id="modeQuiz">🧠 Quiz</button></div>
+<div class="row"><button class="btn alt" id="modeStudy">📖 Study</button><button class="btn alt" id="modeQuiz">🧠 Quiz</button><button class="btn alt" id="mTogether">👥 Together</button></div>
 <div id="stForm"><input id="topic" maxlength="200" placeholder="What do you want to explore? (e.g. God's purpose for my life)" aria-label="Topic">
 <label class="chk"><input type="checkbox" id="seriesChk"> This is a multi-week series</label>
 <div id="seriesFields" hidden>
@@ -208,7 +207,7 @@ section[hidden]{display:none}
   </div>
 </section>
 <section id="backup" hidden>
-  <button class="btn alt" id="backBtn" style="margin-bottom:16px">← Back to Home</button>
+  <button class="back" id="backBtn">← Back</button>
   <p>Your entries live only in this browser. Clearing browser data erases them, so download a backup regularly.</p>
   <div class="row"><button class="btn" id="exp">Download backup</button>
   <button class="btn alt" id="impBtn">Restore from backup</button></div>
@@ -216,6 +215,11 @@ section[hidden]{display:none}
   <p class="meta" id="status" aria-live="polite"></p>
 </section>
 </main>
+  <div id="snapPanel" class="modal" hidden role="dialog" aria-modal="true" aria-label="Verse snapshot"><div class="modal-card">
+    <canvas id="snapCanvas" width="1080" height="1920" style="width:100%;max-width:320px;display:block;margin:0 auto 12px;border-radius:10px;border:1px solid var(--line)"></canvas>
+    <div class="row" id="snapStyles" style="justify-content:center"></div>
+    <div class="row" style="justify-content:center"><button class="btn" id="snapDownload">Download</button><button class="btn alt" id="snapShare">Share</button><button class="btn alt" id="snapCancel">Cancel</button></div>
+  </div></div>
 <nav role="tablist" aria-label="Main sections"><button data-t="home" role="tab" aria-selected="true" aria-controls="home" id="tab-home">Home</button><button data-t="read" role="tab" aria-selected="false" aria-controls="read" id="tab-read">Read</button><button data-t="study" role="tab" aria-selected="false" aria-controls="study" id="tab-study">Study</button><button data-t="notes" role="tab" aria-selected="false" aria-controls="notes" id="tab-notes">Notes</button></nav>
 <script>
 const $=id=>document.getElementById(id);
@@ -225,8 +229,9 @@ let bible={books:{}},editing=null,picked=new Set(),vaultFilter=null,quizMode=fal
 // --- Study Together (Phase 1): Supabase project settings ---
 // Replace these two values with your own Supabase project's URL and anon (public) key.
 // The anon key is meant to be public — real security comes from Row Level Security rules in the database, not from hiding this key.
-const SUPABASE_URL='https://vxzittsgudnvnrkcbiux.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4eml0dHNndWRudm5ya2NiaXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTY4NDIsImV4cCI6MjEwNjQ5Mjg0Mn0.McTA3BvEwQYEKu47K62csbqwYN6Uv7ozejbkiSezsko'; let sb=null,sbUser=null,currentChannel=null,currentRoom=null;
+const SUPABASE_URL='https://YOUR-PROJECT-REF.supabase.co';
+const SUPABASE_ANON_KEY='YOUR-ANON-PUBLIC-KEY';
+let sb=null,sbUser=null,currentChannel=null,currentRoom=null;
 function leaveChannel(){if(currentChannel){try{sb.removeChannel(currentChannel)}catch{}currentChannel=null}currentRoom=null;}
 const STATUS_LABEL={joined:'Joined',reading:'Reading',completed_reading:'Finished reading',ready_to_pray:'Ready to pray',completed:'Completed'};
 function sbReady(){return SUPABASE_URL.includes('YOUR-PROJECT-REF')===false && typeof window.supabase!=='undefined';}
@@ -270,7 +275,7 @@ function setNotesMode(vault){notesMode=vault;
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
   ['home','read','study','notes'].forEach(s=>$(s).hidden=s!==b.dataset.t);
-  $('backup').hidden=true;
+  $('backup').hidden=true;$('together').hidden=true;if(typeof leaveChannel==='function'&&!b._keepRoom)leaveChannel();
   if(b.dataset.t==='study'){if(quizMode)quizList();else stList()}
   if(b.dataset.t==='home')renderHome();if(b.dataset.t==='notes')setNotesMode(notesMode);
 });
@@ -280,211 +285,131 @@ $('modeVault').onclick=()=>setNotesMode(true);$('modeJournal').onclick=()=>setNo
 $('backupLink').onclick=e=>{e.preventDefault();['home','read','study','notes'].forEach(s=>$(s).hidden=true);$('backup').hidden=false;};
 $('backBtn').onclick=()=>document.querySelector('[data-t=home]').click();
 
-function openTogether(){['home','read','study','notes'].forEach(s=>$(s).hidden=true);$('backup').hidden=true;$('together').hidden=false;}
-$('goTogether').onclick=()=>{openTogether();togetherStart()};
-$('togetherBack').onclick=()=>{leaveChannel();history.replaceState(null,'',location.pathname);document.querySelector('[data-t=home]').click()};
+function openTogether(){['home','read','study','notes'].forEach(s=>$(s).hidden=true);$('backup').hidden=true;$('together').hidden=false;
+  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x.dataset.t==='study'));}
+$('mTogether').onclick=()=>{openTogether();togetherStart()};
+$('tmStudy').onclick=()=>{leaveChannel();history.replaceState(null,'',location.pathname);document.querySelector('[data-t=study]').click();setMode(false)};
+$('tmQuiz').onclick=()=>{leaveChannel();history.replaceState(null,'',location.pathname);document.querySelector('[data-t=study]').click();setMode(true)};
 
-function togetherStart(){leaveChannel();const box=$('togetherView');box.innerHTML='';
+// ===== Study Together v2: rooms, sessions, the "last topic" gate, 8-hour lock =====
+const trUI={step:{},view:null,timer:null};
+const trLeft=c=>{const ms=new Date(c).getTime()+8*36e5-Date.now();if(ms<=0)return'locking now';return Math.floor(ms/36e5)+'h '+Math.floor(ms%36e5/6e4)+'m'};
+const trCall=async(fn,args)=>{const {data,error}=await sb.rpc(fn,args);if(error)throw error;return data};
+function trBack(box,fn,label){const b=h('button','back','← '+(label||'Back'));b.onclick=fn;box.append(b)}
+function trWarn(box,e){box.append(h('p','panel warn',String((e&&e.message)||e)))}
+function trInput(ph,max){const i=document.createElement('input');i.placeholder=ph;i.maxLength=max||200;i.setAttribute('aria-label',ph);return i}
+
+function togetherStart(){leaveChannel();clearTimeout(trUI.timer);trUI.view=null;const box=$('togetherView');box.innerHTML='';
   if(!sbReady()){box.append(h('p','panel warn','Study Together isn\'t set up yet on this deployment. The app\'s developer needs to add Supabase connection details first.'));return}
-  box.append(h('h2','','📖 Study Together'),h('p','','Read the same passage as someone else, even when you\'re apart.'));
-  const row=h('div','row');
-  const create=h('button','btn','Create a Study Together');create.onclick=togetherCreateForm;
-  const join=h('button','btn alt','Join a Study');join.onclick=togetherJoinForm;
-  row.append(create,join);box.append(row);}
+  box.append(h('h2','','Study rooms'),h('p','hint','Private rooms where you study one topic together, a session at a time.'));
+  const row=h('div','row');const c=h('button','btn','New room');c.onclick=trCreateForm;const j=h('button','btn alt','Join with code');j.onclick=()=>togetherJoinForm();row.append(c,j);box.append(row);
+  const list=h('div','');list.append(h('p','hint','Loading your rooms…'));box.append(list);
+  (async()=>{try{await ensureAuth();const {data,error}=await sb.from('tr_members').select('room_id,tr_rooms(id,name,code)').eq('user_id',sbUser.id);if(error)throw error;
+    list.innerHTML='';if(!data.length){list.append(h('p','hint','No rooms yet. Create one or join with a code.'));return}
+    data.forEach(m=>{const r=m.tr_rooms;if(!r)return;const card=h('div','panel');card.style.cursor='pointer';card.append(h('strong','',r.name),h('div','meta','Code '+r.code));card.onclick=()=>trOpenRoom(r.id);list.append(card)});
+  }catch(e){list.innerHTML='';trWarn(list,e)}})();}
 
-function togetherCreateForm(){const box=$('togetherView');box.innerHTML='';
-  const back=h('button','btn alt','← Back');back.onclick=togetherStart;box.append(back);
-  box.append(h('h2','','Create a Study Together'));
-  const saved=S.get().filter(x=>!x.study.seriesId);
-  if(saved.length){box.append(h('p','tag','Use one of your existing studies:'));
-    const sel=document.createElement('select');sel.setAttribute('aria-label','Existing study');
-    sel.add(new Option('— Choose a saved study —',''));
-    saved.sort((a,b)=>b.date.localeCompare(a.date)).forEach(x=>sel.add(new Option(x.study.title,x.id)));
-    box.append(sel);
-    const useBtn=h('button','btn','Use this study');useBtn.style.marginBottom='20px';
-    useBtn.onclick=()=>{if(!sel.value){alert('Choose a study first.');return}const x=S.get().find(y=>y.id===sel.value);createRoomFromStudy(x.study)};
-    box.append(useBtn);}
-  box.append(h('p','tag','Or create a new quick study:'));
-  const topic=document.createElement('input');topic.placeholder='Topic (e.g. Trusting God in hard times)';topic.setAttribute('aria-label','New topic');
-  const genBtn=h('button','btn alt','Generate & create room');
-  const msg=h('p','meta','');msg.setAttribute('aria-live','polite');
-  genBtn.onclick=async()=>{const t=topic.value.trim();if(!t)return;
-    let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
-    genBtn.disabled=true;msg.textContent='Preparing a short study…';
-    try{const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic:t,depth:'quick',studyType:'personal',audience:'general',level:'intermediate'})});
+function trCreateForm(){const box=$('togetherView');box.innerHTML='';trBack(box,togetherStart,'Rooms');
+  box.append(h('h2','','New room'),h('p','hint','Name your room, then invite people with its code or link.'));
+  const name=trInput('Room name (e.g. Morning Devotion)',60),btn=h('button','btn','Create room'),msg=h('p','meta','');
+  btn.onclick=async()=>{const n=name.value.trim();if(!n){msg.textContent='Enter a room name.';return}btn.disabled=true;
+    try{await ensureAuth();const d=await trCall('tr_create_room',{p_name:n,p_display:getStudyName()});trOpenRoom(d[0].id)}catch(e){msg.textContent=e.message;btn.disabled=false}};
+  box.append(name,btn,msg);}
+
+function togetherJoinForm(prefill){const box=$('togetherView');box.innerHTML='';trBack(box,togetherStart,'Rooms');
+  box.append(h('h2','','Join a room'));
+  const code=trInput('Room code',12);code.value=prefill||'';const btn=h('button','btn','Join'),msg=h('p','meta','');
+  btn.onclick=async()=>{const c=code.value.trim().toUpperCase();if(!c){msg.textContent='Enter the room code.';return}btn.disabled=true;
+    try{await ensureAuth();const id=await trCall('tr_join',{p_code:c,p_display:getStudyName()});history.replaceState(null,'',location.pathname);trOpenRoom(id)}catch(e){msg.textContent=e.message;btn.disabled=false}};
+  box.append(code,btn,msg);}
+
+function trGateUI(out,id,att,members,nm,render,mode,gate){
+  const me=sbUser.id,lastBy=u=>att.filter(a=>a.user_id===u).sort((x,y)=>new Date(y.created_at)-new Date(x.created_at))[0],mine=lastBy(me);
+  const card=h('div','panel');
+  const askers=members.filter(m=>m.user_id!==me).filter(m=>{const a=lastBy(m.user_id);return a&&a.kind==='forgot'&&(!mine||new Date(a.created_at)>new Date(mine.created_at))});
+  if(mode==='help'){if(!askers.length)return;
+    card.append(h('h3','','🔔 '+askers.map(m=>m.display_name).join(', ')+(askers.length>1?' need':' needs')+' your help'),h('p','hint','They can\'t remember the last session\'s topic. If you do, type it to give them a pass.'));}
+  else{card.append(h('h3','',gate.open?'Enter the last topic to join':'Enter the last topic to continue'),h('p','hint','Type the topic of your previous session from memory. Small spelling slips are fine.'));
+    askers.forEach(m=>card.append(h('p','meta','🔔 '+m.display_name+' can\'t remember it either. Your answer here can let them in.')));}
+  const inp=trInput('Last session\'s topic'),go=h('button','btn','Check'),fg=h('button','btn alt',mode==='help'?'I can\'t remember either':'I can\'t remember'),msg=h('p','meta','');msg.setAttribute('aria-live','polite');
+  go.onclick=async()=>{const v=inp.value.trim();if(!v)return;go.disabled=true;try{const ok=await trCall('tr_gate_guess',{p_room:id,p_guess:v});if(ok)render();else{msg.textContent='Not quite. Try again, or tap "I can\'t remember".';go.disabled=false}}catch(e){msg.textContent=e.message;go.disabled=false}};
+  fg.onclick=async()=>{fg.disabled=true;try{await trCall('tr_gate_forgot',{p_room:id});render()}catch(e){msg.textContent=e.message;fg.disabled=false}};
+  const row=h('div','row');row.append(go,fg);card.append(inp,row,msg);
+  if(mode!=='help'&&mine){const last=new Date(mine.created_at);const w=members.filter(m=>m.user_id!==me&&!att.some(a=>a.user_id===m.user_id&&new Date(a.created_at)>last)).map(m=>m.display_name);
+    if(w.length)card.append(h('p','meta','⏳ Waiting for '+w.join(', ')+' to try. If nobody remembers, you\'ll get a free pass.'));}
+  out.append(card);}
+
+function trNewForm(out,id,render){
+  const card=h('div','panel');card.append(h('h3','','Start a session'),h('p','hint','Enter a topic. We\'ll prepare the passages, a lesson, questions and prayer points for everyone in the room.'));
+  const t=trInput('Topic (e.g. Trusting God in hard times)'),btn=h('button','btn','Create session'),msg=h('p','meta','');msg.setAttribute('aria-live','polite');
+  btn.onclick=async()=>{const topic=t.value.trim();if(!topic)return;let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
+    btn.disabled=true;msg.textContent='Preparing your session… this can take up to 30 seconds.';
+    try{const r=await fetch('/api/lesson',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic})});
       if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode.')}
-      const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');
-      localStorage.setItem('pass',pass);msg.textContent='';createRoomFromStudy(d);
-    }catch(e){msg.textContent=navigator.onLine?e.message:'You are offline.';genBtn.disabled=false}};
-  box.append(topic,genBtn,msg);}
+      const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');localStorage.setItem('pass',pass);
+      await trCall('tr_create_session',{p_room:id,p_topic:topic,p_title:d.title,p_passages:d.passages,p_lesson:d.lesson,p_questions:d.questions.map((text,i)=>({index:i,text})),p_prayer:d.prayerPoints});
+      render();
+    }catch(e){msg.textContent=navigator.onLine?e.message:'You are offline.';btn.disabled=false}};
+  card.append(t,btn,msg);out.append(card);}
 
-async function createRoomFromStudy(study){const box=$('togetherView');box.innerHTML='<p class="hint">Setting up your study room…</p>';
-  try{await ensureAuth();
-    const passageText=study.passages.map(r=>{const vs=parseRef(r);return {ref:r,verses:vs?vs.map(([n,t])=>({n,t})):null}});
-    const qs=study.questions||{};
-    const questions=[qs.observation&&qs.observation[0],qs.application&&qs.application[0]].filter(Boolean).map((text,i)=>({index:i,text}));
-    const code=roomCode();
-    const {data,error}=await sb.from('study_rooms').insert({code,title:study.title,passages:study.passages,passage_text:passageText,questions,prayer:study.prayer||'',created_by:sbUser.id}).select().single();
-    if(error)throw error;
-    await sb.from('study_participants').insert({room_id:data.id,user_id:sbUser.id,display_name:getStudyName()});
-    openRoom(data.code);
-  }catch(e){box.innerHTML='';box.append(h('p','panel warn','Could not create the room: '+(e.message||e)));}}
+async function trSessionUI(out,s,members,gate,render){
+  const [c,a,d]=await Promise.all([sb.from('tr_session_content').select('*').eq('session_id',s.id).maybeSingle(),sb.from('tr_answers').select('*').eq('session_id',s.id),sb.from('tr_done').select('user_id').eq('session_id',s.id)]);
+  const card=h('div','');out.append(card);const ct=c.data;
+  if(!ct){card.append(h('p','panel','🔒 This session is locked. Its details are hidden.'));return}
+  const me=sbUser.id,answers=a.data||[],done=d.data||[],qs=ct.questions||[],closed=!!s.closed_at;
+  card.append(h('h3','',ct.title),h('p','tag','Topic: '+ct.topic+' · Session '+s.seq));
+  if(gate.prev_topic&&s.seq===gate.target)card.append(h('p','meta','Last session\'s topic: '+gate.prev_topic));
+  if(closed)card.append(h('p','panel','✅ Session closed. It locks in '+trLeft(s.closed_at)+' — read it again until then.'));
+  const steps=['Passages','Lesson','Questions','Prayer'],bar=h('div','row'),body=h('div','');card.append(bar,body);
+  const ans=(u,i)=>answers.find(x=>x.user_id===u&&x.question_index===i);
+  const all=members.every(m=>qs.every(q=>ans(m.user_id,q.index)));
+  const draw=()=>{const cur=trUI.step[s.id]||0;bar.innerHTML='';body.innerHTML='';
+    steps.forEach((n,i)=>{const b=h('span','chip'+(i===cur?' on':''),(i+1)+'. '+n);b.onclick=()=>{trUI.step[s.id]=i;draw()};bar.append(b)});
+    if(cur===0)(ct.passages||[]).forEach(ref=>{const dv=h('div','ref');dv.append(h('strong','',ref));const vs=parseRef(ref);
+      if(vs)vs.forEach(([n,t])=>{const p=h('p','v');p.append(h('sup','',n),' '+t);dv.append(p)});else dv.append(h('p','hint','Open this passage in the Read tab.'));body.append(dv)});
+    if(cur===1){const l=ct.lesson||{};if(l.intro)body.append(h('p','',l.intro));(l.sections||[]).forEach(x=>{body.append(h('h3','',x.heading),h('p','',x.body))});if(l.summary){const p=h('div','panel');p.append(h('p','',l.summary));body.append(p)}}
+    if(cur===2){qs.forEach(q=>{const p=h('div','panel');p.append(h('strong','','Question '+(q.index+1)),h('p','',q.text));const my=ans(me,q.index);
+      if(!my&&!closed){p.append(h('p','hint','🔒 Everyone\'s answers are revealed once you\'ve answered.'));const ta=document.createElement('textarea');ta.setAttribute('aria-label','Your answer');const sb2=h('button','btn','Submit answer');
+        sb2.onclick=async()=>{const v=ta.value.trim();if(!v)return;sb2.disabled=true;const {error}=await sb.from('tr_answers').insert({session_id:s.id,question_index:q.index,user_id:me,answer:v});if(error){alert(error.message);sb2.disabled=false}else render()};p.append(ta,sb2)}
+      else if(my){p.append(h('p','tag','You'),h('p','',my.answer));members.filter(m=>m.user_id!==me).forEach(m=>{const x=ans(m.user_id,q.index);p.append(h('p','tag',m.display_name),h('p','',x?x.answer:'Hasn\'t answered yet.'))})}
+      body.append(p)})}
+    if(cur===3){if(!all)body.append(h('p','panel','🔒 Prayer points unlock when everyone has answered all the questions.'));
+      else{(ct.prayer||[]).forEach(x=>{const p=h('div','panel');p.append(h('p','',x));body.append(p)});
+        if(!closed){const iDone=done.some(x=>x.user_id===me);if(iDone)body.append(h('p','meta','✓ You\'re done. '+done.length+' of '+members.length+' finished. The session closes when everyone is done.'));
+          else{const b=h('button','btn','Done');b.onclick=async()=>{b.disabled=true;try{await trCall('tr_mark_done',{p_session:s.id});render()}catch(e){alert(e.message);b.disabled=false}};body.append(b)}}}}
+    const nav=h('div','row');if(cur>0){const b=h('button','btn alt','← Previous');b.onclick=()=>{trUI.step[s.id]=cur-1;draw()};nav.append(b)}
+    if(cur<3){const b=h('button','btn','Next →');b.onclick=()=>{trUI.step[s.id]=cur+1;draw();scrollTo(0,0)};nav.append(b)}body.append(nav)};
+  draw();}
 
-function togetherJoinForm(prefillCode){const box=$('togetherView');box.innerHTML='';
-  const back=h('button','btn alt','← Back');back.onclick=togetherStart;box.append(back);
-  box.append(h('h2','','Join a Study'));
-  const code=document.createElement('input');code.placeholder='Study code (e.g. FAITH4821)';code.setAttribute('aria-label','Study code');
-  if(prefillCode)code.value=prefillCode;
-  const btn=h('button','btn','Join');const msg=h('p','meta','');msg.setAttribute('aria-live','polite');
-  btn.onclick=()=>joinRoom(code.value.trim().toUpperCase(),msg,btn);
-  box.append(code,btn,msg);
-  if(prefillCode)joinRoom(prefillCode,msg,btn);}
-
-async function joinRoom(code,msg,btn){if(!code){msg.textContent='Enter a study code.';return}
-  if(btn)btn.disabled=true;msg.textContent='Joining…';
-  try{await ensureAuth();
-    const {data:room,error}=await sb.from('study_rooms').select('*').eq('code',code).maybeSingle();
-    if(error)throw error;
-    if(!room){msg.textContent='No study found with that code. Check it and try again.';if(btn)btn.disabled=false;return}
-    await sb.from('study_participants').upsert({room_id:room.id,user_id:sbUser.id,display_name:getStudyName()},{onConflict:'room_id,user_id'});
-    openRoom(room.code);
-  }catch(e){msg.textContent='Could not join: '+(e.message||e);if(btn)btn.disabled=false}}
-
-async function openRoom(code){leaveChannel();history.replaceState(null,'',location.pathname+'?room='+code);
-  const box=$('togetherView');box.innerHTML='<p class="hint">Loading your shared study…</p>';
-  try{await ensureAuth();
-    const {data:room,error}=await sb.from('study_rooms').select('*').eq('code',code).maybeSingle();
-    if(error)throw error;
-    if(!room){box.innerHTML='';const bk=h('button','btn alt','← Back');bk.onclick=togetherStart;
-      box.append(bk,h('p','panel warn','This study link isn\'t valid or may have been removed.'));return}
-    currentRoom=room;
-    box.innerHTML='';
-    const back=h('button','btn alt','← Back');back.onclick=togetherStart;box.append(back);
-    box.append(h('h2','','📖 '+room.title));
-    (room.passages||[]).forEach(ref=>box.append(h('p','badge',ref)));
-    const invite=h('div','panel');
-    invite.append(h('strong','','Invite your partner'));
-    const link=location.origin+location.pathname+'?room='+room.code;
-    const linkBox=document.createElement('input');linkBox.value=link;linkBox.readOnly=true;linkBox.setAttribute('aria-label','Invite link');linkBox.onclick=()=>linkBox.select();
-    const copyBtn=h('button','btn alt','Copy link');
-    copyBtn.onclick=()=>{navigator.clipboard?navigator.clipboard.writeText(link).then(()=>{copyBtn.textContent='Copied ✓';setTimeout(()=>copyBtn.textContent='Copy link',1500)}):(linkBox.select(),document.execCommand('copy'))};
-    const codeRow=h('p','meta','Study Code: '+room.code);
-    invite.append(linkBox,copyBtn,codeRow);box.append(invite);
-    const presenceBox=h('div','panel');presenceBox.id='presenceBox';box.append(presenceBox);
-    box.append(h('h3','','Read the passage'));
-    (room.passage_text||[]).forEach(p=>{const d=h('div','ref');d.append(h('strong','',p.ref));
-      if(p.verses)p.verses.forEach(v=>{const vp=h('p','v');vp.append(h('sup','',v.n),document.createTextNode(v.t));d.append(vp)});
-      else d.append(h('p','tag warn','Verse text wasn\'t available when this study was created.'));
-      box.append(d)});
-    const nextBox=h('div');nextBox.id='nextBox';box.append(nextBox);
-
-    await refreshPresence(room.id);
-    currentChannel=sb.channel('room-'+room.id)
-      .on('postgres_changes',{event:'*',schema:'public',table:'study_participants',filter:'room_id=eq.'+room.id},()=>refreshPresence(room.id))
-      .on('postgres_changes',{event:'*',schema:'public',table:'study_answers',filter:'room_id=eq.'+room.id},()=>refreshPresence(room.id))
-      .subscribe();
-  }catch(e){box.innerHTML='';box.append(h('p','panel warn','Could not load this study: '+(e.message||e)));}}
-
-async function refreshPresence(roomId){const {data:people,error}=await sb.from('study_participants').select('display_name,user_id,status').eq('room_id',roomId);
-  if(error||!$('presenceBox'))return;
-  const box=$('presenceBox');box.innerHTML='';box.append(h('strong','','Studying together'));
-  (people||[]).forEach(p=>{const row=h('div');row.style.cssText='display:flex;align-items:center;gap:8px;margin:4px 0';
-    const dot=['completed_reading','ready_to_pray','completed'].includes(p.status)?'✓':'🟢';
-    row.append(h('span','',dot+' '+(p.user_id===sbUser.id?'You':p.display_name)+' — '+(STATUS_LABEL[p.status]||'Joined')));
-    box.append(row)});
-  const me=(people||[]).find(p=>p.user_id===sbUser.id);
-  const others=(people||[]).filter(p=>p.user_id!==sbUser.id);
-  const allDone=(people||[]).length>1&&(people||[]).every(p=>p.status==='completed_reading');
-
-  const actionRow=h('div','row');actionRow.style.marginTop='10px';
-  if(!me||me.status!=='completed_reading'){
-    const btn=h('button','btn',(!me||me.status==='joined')?"I'm Reading":"I'm Done Reading");
-    btn.onclick=async()=>{btn.disabled=true;const next=(!me||me.status==='joined')?'reading':'completed_reading';
-      await sb.from('study_participants').update({status:next}).eq('room_id',roomId).eq('user_id',sbUser.id);};
-    actionRow.append(btn);
-  }
-  box.append(actionRow);
-
-  if(others.length&&!allDone){
-    const waitingOn=others.filter(p=>p.status!=='completed_reading').map(p=>p.display_name);
-    if(waitingOn.length&&me&&me.status==='completed_reading')
-      box.append(h('p','meta','Waiting for '+waitingOn.join(', ')+' to finish reading. Take your time — no rush on their end either.'));
-    else if(others.some(p=>p.status==='completed_reading'))
-      box.append(h('p','meta',others.filter(p=>p.status==='completed_reading').map(p=>p.display_name).join(', ')+' is ready. Take your time reading.'));
-  }
-
-  const nextBox=$('nextBox');if(nextBox){nextBox.innerHTML='';
-    if(allDone){nextBox.append(h('p','panel','✓ You\'ve both finished the passage.'));
-      await renderReflection(people,nextBox);}}}
-
-async function renderReflection(people,nextBox){const room=currentRoom;if(!room)return;
-  const questions=room.questions||[];
-  if(!questions.length){nextBox.append(h('p','hint','This study doesn\'t have reflection questions saved — nothing more to do here yet.'));return}
-  const {data:answers}=await sb.from('study_answers').select('*').eq('room_id',room.id);
-  const byQ={};(answers||[]).forEach(a=>{(byQ[a.question_index]=byQ[a.question_index]||[]).push(a)});
-
-  let activeIndex=-1;
-  for(let i=0;i<questions.length;i++){
-    const qAns=byQ[i]||[];
-    const bothAnswered=people.length>1&&people.every(p=>qAns.some(a=>a.user_id===p.user_id));
-    if(bothAnswered){
-      const block=h('div','panel');
-      block.append(h('h3','','Question '+(i+1)),h('p','',questions[i].text));
-      qAns.forEach(a=>{const name=a.user_id===sbUser.id?'Your response':((people.find(p=>p.user_id===a.user_id)||{}).display_name||'Your partner')+"'s response";
-        block.append(h('strong','',name),h('p','',a.answer))});
-      nextBox.append(block);
-    }else{activeIndex=i;break}
-  }
-  if(activeIndex===-1){
-    const me=people.find(p=>p.user_id===sbUser.id);
-    const allReady=people.length>1&&people.every(p=>p.status==='ready_to_pray'||p.status==='completed');
-    const prayerBox=h('div','panel');
-    prayerBox.append(h('h3','','🙏 Prayer'));
-    prayerBox.append(h('p','',room.prayer&&room.prayer.trim()?room.prayer:'No prayer was saved with this study — take a moment to pray together in your own words.'));
-    if(allReady){
-      if(me&&me.status!=='completed')sb.from('study_participants').update({status:'completed'}).eq('room_id',room.id).eq('user_id',sbUser.id);
-      nextBox.append(prayerBox);
-      const done=h('div','panel');
-      done.append(h('h2','','✓ Study Completed Together'),h('p','',room.title));
-      done.append(h('p','','✓ Passage read together'));
-      questions.forEach((q,i)=>done.append(h('p','','✓ Question '+(i+1)+' shared')));
-      done.append(h('p','','✓ Prayer')); 
-      const row=h('div','row');
-      const again=h('button','btn','Study Together Again');again.onclick=togetherStart;
-      const home=h('button','btn alt','Return to Dashboard');home.onclick=()=>$('togetherBack').click();
-      row.append(again,home);done.append(row);
-      nextBox.append(done);
-      return;
-    }
-    if(me&&(me.status==='ready_to_pray'||me.status==='completed')){
-      prayerBox.append(h('p','meta','✓ You\'re ready. Waiting for your partner…'));
-    }else{
-      const btn=h('button','btn',"I'm ready to pray");
-      btn.onclick=async()=>{btn.disabled=true;await sb.from('study_participants').update({status:'ready_to_pray'}).eq('room_id',room.id).eq('user_id',sbUser.id)};
-      prayerBox.append(btn);
-    }
-    nextBox.append(prayerBox);
-    return;
-  }
-
-  const q=questions[activeIndex];
-  const qBox=h('div','panel');
-  qBox.append(h('h3','','Question '+(activeIndex+1)),h('p','',q.text));
-  const mine=(byQ[activeIndex]||[]).find(a=>a.user_id===sbUser.id);
-  if(mine){
-    qBox.append(h('p','','✓ Your answer has been submitted.'),h('p','',mine.answer));
-    const waitingNames=people.filter(p=>p.user_id!==sbUser.id&&!(byQ[activeIndex]||[]).some(a=>a.user_id===p.user_id)).map(p=>p.display_name);
-    if(waitingNames.length)qBox.append(h('p','meta','Waiting for '+waitingNames.join(', ')+' to answer…'));
-  }else{
-    qBox.append(h('p','tag','🔒 Your partner\'s response will be revealed when you\'ve both answered.'));
-    const ta=document.createElement('textarea');ta.setAttribute('aria-label','Your answer to question '+(activeIndex+1));ta.placeholder='Your response…';
-    const submitBtn=h('button','btn','Submit Answer');
-    submitBtn.onclick=async()=>{const val=ta.value.trim();if(!val)return;submitBtn.disabled=true;
-      const {error}=await sb.from('study_answers').insert({room_id:room.id,question_index:activeIndex,question_text:q.text,user_id:sbUser.id,answer:val});
-      if(error){alert('Could not submit your answer: '+error.message);submitBtn.disabled=false}};
-    qBox.append(ta,submitBtn);
-  }
-  nextBox.append(qBox);}
+async function trOpenRoom(id){leaveChannel();clearTimeout(trUI.timer);try{localStorage.setItem('lastRoom',id)}catch{}
+  const box=$('togetherView');box.innerHTML='<p class="hint">Opening room…</p>';
+  try{await ensureAuth()}catch(e){box.innerHTML='';trWarn(box,e);return}
+  trUI.view=null;let ch=null;
+  const render=async()=>{if(currentChannel!==ch)return;try{
+    const [r1,r2,r3,r4]=await Promise.all([sb.from('tr_rooms').select('*').eq('id',id).maybeSingle(),sb.from('tr_members').select('user_id,display_name').eq('room_id',id),sb.from('tr_sessions').select('*').eq('room_id',id).order('seq',{ascending:false}),sb.rpc('tr_gate_state',{p_room:id})]);
+    if(r1.error||!r1.data)throw new Error('Room not found, or you are not a member.');if(r4.error)throw r4.error;
+    const room=r1.data,members=r2.data||[],sessions=r3.data||[],gate=r4.data,nm=u=>(members.find(m=>m.user_id===u)||{}).display_name||'Someone';
+    const att=(await sb.from('tr_attempts').select('*').eq('room_id',id).eq('seq',gate.target)).data||[];
+    const out=h('div',''),latest=sessions[0],open=latest&&!latest.closed_at?latest:null,viewS=trUI.view&&sessions.find(s=>s.id===trUI.view);gate.open=!!open;
+    trBack(out,togetherStart,'Rooms');out.append(h('h2','',room.name));
+    const mr=h('div','row');members.forEach(m=>mr.append(h('span','badge',m.display_name+(m.user_id===sbUser.id?' (you)':''))));
+    const link=location.origin+location.pathname+'?room='+room.code,cp=h('button','btn alt','Invite · '+room.code);
+    cp.onclick=()=>{(navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>{cp.textContent='Link copied ✓';setTimeout(()=>cp.textContent='Invite · '+room.code,1500)}).catch(()=>prompt('Copy this link',link))};mr.append(cp);out.append(mr);
+    if(viewS){const b=h('button','back','← Sessions');b.onclick=()=>{trUI.view=null;render()};out.append(b);await trSessionUI(out,viewS,members,gate,render)}
+    else if(gate.needed&&!gate.passed)trGateUI(out,id,att,members,nm,render,'gate',gate);
+    else{if(gate.needed)trGateUI(out,id,att,members,nm,render,'help',gate);
+      if(open)await trSessionUI(out,open,members,gate,render);else trNewForm(out,id,render);
+      const past=sessions.filter(s=>s!==open);
+      if(past.length){out.append(h('h3','','Past sessions'));past.forEach(s=>{const p=h('div','panel'),locked=s.closed_at&&Date.now()>=new Date(s.closed_at).getTime()+8*36e5;
+        p.append(h('strong','','Session '+s.seq),h('span','meta',' · '+new Date(s.created_at).toLocaleDateString()+(locked?' · 🔒 Locked':' · open to read, locks in '+trLeft(s.closed_at))));
+        if(!locked){const b=h('button','btn alt','View');b.style.marginLeft='12px';b.onclick=()=>{trUI.view=s.id;render()};p.append(b)}out.append(p)})}}
+    if(currentChannel===ch)box.replaceChildren(out);
+  }catch(e){box.innerHTML='';trBack(box,togetherStart,'Rooms');trWarn(box,e)}};
+  const sched=()=>{clearTimeout(trUI.timer);trUI.timer=setTimeout(()=>{const ae=document.activeElement;if(ae&&box.contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName)&&ae.value){sched();return}render()},ae0()?4000:400)};
+  const ae0=()=>{const ae=document.activeElement;return ae&&box.contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName)&&ae.value};
+  ch=currentChannel=sb.channel('tr-'+id+'-'+Date.now());
+  ['tr_sessions','tr_attempts','tr_members','tr_answers','tr_done'].forEach(t=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},sched));ch.subscribe();
+  await render();}
 
 (function checkTogetherLink(){const m=location.search.match(/[?&]room=([A-Z0-9]+)/i);
   if(m){openTogether();togetherJoinForm(m[1].toUpperCase())}})();
@@ -608,10 +533,10 @@ function drawSnapshot(){const c=$('snapCanvas'),ctx=c.getContext('2d'),W=c.width
 function openSnapshot(ref,text){snapRef=ref;snapText=text;$('vaultForm').hidden=true;$('askPanel').hidden=true;$('snapPanel').hidden=false;
   const sw=$('snapStyles');sw.innerHTML='';SNAP_PALETTES.forEach((p,i)=>{const b=h('span','chip'+(i===snapPalette?' on':''),p.name);
     b.onclick=()=>{snapPalette=i;drawSnapshot();sw.querySelectorAll('.chip').forEach((c,j)=>c.classList.toggle('on',j===i))};sw.append(b)});
-  drawSnapshot();scrollTo(0,0)}
+  drawSnapshot()}
 $('snapBtn').onclick=()=>{if(!picked.size){alert('Tap one or more verses first, then tap Snapshot.');return}
   openSnapshot(refText(),[...picked].map(Number).sort((a,b)=>a-b).map(n=>bible.books[$('book').value][$('chap').value][n]).join(' '))};
-$('snapCancel').onclick=()=>{$('snapPanel').hidden=true;};
+$('snapCancel').onclick=()=>{$('snapPanel').hidden=true;};$('snapPanel').onclick=e=>{if(e.target===$('snapPanel'))$('snapPanel').hidden=true};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('snapPanel').hidden=true});
 $('snapDownload').onclick=()=>{$('snapCanvas').toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='verse-snapshot.png';a.click()},'image/png')};
 $('snapShare').onclick=()=>{$('snapCanvas').toBlob(async b=>{const file=new File([b],'verse-snapshot.png',{type:'image/png'});
   if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:snapRef,text:snapRef})}catch{}}
@@ -619,7 +544,8 @@ $('snapShare').onclick=()=>{$('snapCanvas').toBlob(async b=>{const file=new File
     alert('Sharing images isn\'t available on this device — downloaded it instead. You can attach it to WhatsApp from your photos.')}
 },'image/png')};
 
-function renderHome(){$('stStudies').textContent=S.get().length;$('stVault').textContent=V.get().length;$('stJournal').textContent=store.get().length;
+function renderHome(){const lrm=localStorage.getItem('lastRoom');const hb=$('continueBox');
+  setTimeout(()=>{if(lrm&&sbReady()&&!$('home').hidden){const c=h('div','panel');c.append(h('div','meta','Study room'),h('strong','','Continue your study room'));const g=h('button','btn alt','Open');g.style.marginLeft='12px';g.onclick=()=>{openTogether();trOpenRoom(lrm)};c.append(g);hb.prepend(c)}},0);$('stStudies').textContent=S.get().length;$('stVault').textContent=V.get().length;$('stJournal').textContent=store.get().length;
   const box=$('continueBox');box.innerHTML='';
   const lr=lastRead.get();
   if(lr){const p=h('div','panel');p.append(h('div','meta','Continue reading'),h('strong','',lr.book+' '+lr.chap));
@@ -720,7 +646,7 @@ function renderVault(){const L=V.get().sort((a,b)=>b.date.localeCompare(a.date))
   list.forEach(x=>{const d=h('div','entry');d.append(h('h3','',x.ref),h('p','',x.text));
     if(x.note)d.append(h('p','meta','Note: '+x.note));
     d.append(h('div','meta',x.tag+' · '+new Date(x.date).toLocaleDateString()));
-    const snap=h('button','btn alt','📸 Snapshot');snap.onclick=()=>{document.querySelector('[data-t=read]').click();openSnapshot(x.ref,x.text)};
+    const snap=h('button','btn alt','📸 Snapshot');snap.onclick=()=>{openSnapshot(x.ref,x.text)};
     const del=h('button','btn del','Delete');del.onclick=()=>{if(confirm('Delete this saved verse?')){V.set(V.get().filter(y=>y.id!==x.id));renderVault()}};
     d.append(snap,del);box.append(d)});}
 
@@ -742,8 +668,10 @@ $('save').onclick=()=>{const body=$('jBody').value.trim();if(!body&&!$('jTitle')
   if(editing)L=L.map(x=>x.id===editing?{...x,...o}:x);else L.push({id:Date.now().toString(36),date:new Date().toISOString(),...o});
   store.set(L);clearForm();render();};
 
+function bookKey(n){n=n.trim();if(bible.books[n])return n;const al={'Psalm':'Psalms','Song of Songs':'Song of Solomon','Songs of Solomon':'Song of Solomon','Revelation of John':'Revelation'};
+  if(al[n]&&bible.books[al[n]])return al[n];const l=n.toLowerCase();return Object.keys(bible.books).find(k=>k.toLowerCase()===l||k.toLowerCase()===l+'s')||n;}
 function parseRef(r){const m=String(r).match(/^(.+?)\s+(\d+):(\d+)(?:\s*[-–]\s*(\d+))?$/);if(!m)return null;
-  const ch=bible.books[m[1].trim()]&&bible.books[m[1].trim()][m[2]];if(!ch)return null;const a=+m[3],z=+(m[4]||m[3]),vs=[];
+  const bk=bookKey(m[1]);const ch=bible.books[bk]&&bible.books[bk][m[2]];if(!ch)return null;const a=+m[3],z=+(m[4]||m[3]),vs=[];
   for(let i=a;i<=z;i++){if(!ch[i])return null;vs.push([i,ch[i]])}return vs.length?vs:null;}
 const PERPAGE=6;
 function paginateArr(arr,page){const totalPages=Math.max(1,Math.ceil(arr.length/PERPAGE));page=Math.min(Math.max(1,page),totalPages);return {slice:arr.slice((page-1)*PERPAGE,page*PERPAGE),page,totalPages};}
