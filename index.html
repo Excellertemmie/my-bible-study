@@ -8,6 +8,7 @@
 <link rel="icon" href="icon.svg">
 <script defer src="/_vercel/insights/script.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <style>
 :root{
   --bg:#f7f4ec;--paper:#fcfaf4;--ink:#241f16;--mute:#6b6358;--deep:#122b24;--deep-ink:#0c1714;
@@ -78,6 +79,15 @@ section[hidden]{display:none}
 .modal[hidden]{display:none}
 .modal-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;max-width:380px;width:100%;max-height:92vh;overflow:auto}
 .modes{display:flex;gap:8px;margin-bottom:var(--space-2)}.modes .btn{flex:1;padding:10px 6px}
+.menu{position:relative}.menu-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;background:var(--paper);border:1px solid var(--line);border-radius:12px;min-width:230px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.menu-list[hidden]{display:none}
+.menu-list .btn{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:11px 12px;border-radius:8px;font-weight:500;min-height:42px}
+.menu-list .btn:hover{background:color-mix(in srgb,var(--gold) 16%,transparent)}
+.menu-list .mset{display:flex;gap:6px;border-top:1px solid var(--line);margin-top:6px;padding-top:6px}.menu-list .mset .btn{text-align:center;padding:9px 6px}
+#text{font-size:var(--fs,1.05rem);line-height:1.7}
+#text.flow .v{display:inline;margin:0 .3em 0 0;cursor:pointer}
+#text:not(.flow) .v{cursor:pointer}
+.chnav{display:flex;justify-content:space-between;gap:10px;margin:var(--space-3) 0}
 .back{background:none;border:0;color:var(--gold-dark);font:600 .95rem system-ui,sans-serif;padding:8px 0;min-height:44px;cursor:pointer}
 ::selection{background:var(--gold);color:#1a140c}
 @media print{
@@ -118,9 +128,21 @@ section[hidden]{display:none}
 </section>
 <section id="read" hidden role="tabpanel" aria-labelledby="tab-read">
   <div class="row"><select id="ver" aria-label="Bible version"><option value="kjv">KJV</option><option value="bbe">BBE</option><option value="asv">ASV</option></select><select id="book" aria-label="Book"></select><select id="chap" aria-label="Chapter"></select></div>
+  <div class="row noprint" style="justify-content:space-between;flex-wrap:nowrap">
+    <span class="hint" id="pickInfo">Tap verses to select them</span>
+    <div class="menu" id="actMenu"><button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false">Actions ▾</button>
+      <div class="menu-list" id="menuList" hidden>
+        <button class="btn" id="toJournal">📝 Journal this passage</button>
+        <button class="btn" id="saveVerse">🔖 Save to Vault</button>
+        <button class="btn" id="askBtn">💬 Ask about this passage</button>
+        <button class="btn" id="snapBtn">📸 Snapshot</button>
+        <button class="btn" id="toggleProg">📊 Book progress</button>
+        <button class="btn" id="chapBtn">📖 Chapter study</button>
+        <div class="mset"><button class="btn" id="szDown" aria-label="Smaller text" data-keep>A−</button><button class="btn" id="szUp" aria-label="Larger text" data-keep>A+</button><button class="btn" id="flowBtn" data-keep>Verse list</button></div>
+      </div></div>
+  </div>
   <div id="text"></div>
-  <p class="hint">Tap verses to select them, then write about them or save them.</p>
-  <div class="row"><button class="btn" id="toJournal">Journal this passage</button><button class="btn alt" id="saveVerse">Save to Vault</button><button class="btn alt" id="askBtn">Ask about this passage</button><button class="btn alt" id="snapBtn">📸 Snapshot</button></div>
+    <div class="chnav noprint"><button class="btn alt" id="prevCh">← Previous</button><button class="btn alt" id="nextCh">Next →</button></div>
   <div id="vaultForm" class="panel" hidden>
     <input id="vTag" placeholder="Tag (e.g. Purpose, Prayer, Faith)" aria-label="Tag">
     <textarea id="vNote" placeholder="Your note (optional)" aria-label="Note"></textarea>
@@ -133,14 +155,12 @@ section[hidden]{display:none}
     <p class="meta" id="askMsg" aria-live="polite"></p>
     <div id="askAns"></div>
   </div>
-  <div class="row"><button class="btn alt" id="toggleProg">Book progress</button></div>
-  <label class="chk"><input type="checkbox" id="readChk"> I've read this chapter</label>
+    <label class="chk"><input type="checkbox" id="readChk"> I've read this chapter</label>
   <div id="progPanel" hidden>
     <p class="meta" id="progText"></p>
     <div class="grid" id="progGrid"></div>
   </div>
-  <div class="row"><button class="btn alt" id="chapBtn">Chapter study</button></div>
-  <div id="chapPanel" class="panel" hidden></div>
+    <div id="chapPanel" class="panel" hidden></div>
   <p class="hint" id="tr"></p>
 </section>
 <section id="study" hidden role="tabpanel" aria-labelledby="tab-study">
@@ -229,8 +249,8 @@ let bible={books:{}},editing=null,picked=new Set(),vaultFilter=null,quizMode=fal
 // --- Study Together (Phase 1): Supabase project settings ---
 // Replace these two values with your own Supabase project's URL and anon (public) key.
 // The anon key is meant to be public — real security comes from Row Level Security rules in the database, not from hiding this key.
-const SUPABASE_URL='https://vxzittsgudnvnrkcbiux.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4eml0dHNndWRudm5ya2NiaXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTY4NDIsImV4cCI6MjEwNjQ5Mjg0Mn0.McTA3BvEwQYEKu47K62csbqwYN6Uv7ozejbkiSezsko';
+const SUPABASE_URL=(window.SB_CONFIG&&window.SB_CONFIG.url)||'https://vxzittsgudnvnrkcbiux.supabase.co';
+const SUPABASE_ANON_KEY=(window.SB_CONFIG&&window.SB_CONFIG.key)||'YOUR-ANON-PUBLIC-KEY';
 let sb=null,sbUser=null,currentChannel=null,currentRoom=null;
 function leaveChannel(){if(currentChannel){try{sb.removeChannel(currentChannel)}catch{}currentChannel=null}currentRoom=null;}
 const STATUS_LABEL={joined:'Joined',reading:'Reading',completed_reading:'Finished reading',ready_to_pray:'Ready to pray',completed:'Completed'};
@@ -425,11 +445,28 @@ function show(){picked.clear();const t=$('text');t.innerHTML='';
   const vs=bible.books[$('book').value][$('chap').value];
   Object.entries(vs).forEach(([n,tx])=>{const p=document.createElement('p');p.className='v';p.dataset.n=n;
     const s=document.createElement('sup');s.textContent=n;p.append(s,tx);
-    p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel')};t.append(p)});
+    p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel');updPick()};t.append(p)});
   lastRead.set({ver:$('ver').value,book:$('book').value,chap:$('chap').value});
   const prog=P.get();$('readChk').checked=(prog[$('book').value]||[]).includes($('chap').value);
   $('vaultForm').hidden=true;$('askPanel').hidden=true;$('chapPanel').hidden=true;$('snapPanel').hidden=true;
-  if(!$('progPanel').hidden)progUpdate();}
+  if(!$('progPanel').hidden)progUpdate();updPick();}
+function updPick(){$('pickInfo').textContent=picked.size?picked.size+' verse'+(picked.size>1?'s':'')+' selected':'Tap verses to select them'}
+const RD={get fs(){return +localStorage.getItem('fs')||1.05},get flow(){return localStorage.getItem('flow')!=='0'}};
+function applyRead(){const t=$('text');t.style.setProperty('--fs',RD.fs+'rem');t.classList.toggle('flow',RD.flow);$('flowBtn').textContent=RD.flow?'Verse list':'Paragraph'}
+$('szUp').onclick=()=>{localStorage.setItem('fs',Math.min(1.5,+(RD.fs+.1).toFixed(2)));applyRead()};
+$('szDown').onclick=()=>{localStorage.setItem('fs',Math.max(.9,+(RD.fs-.1).toFixed(2)));applyRead()};
+$('flowBtn').onclick=()=>{localStorage.setItem('flow',RD.flow?'0':'1');applyRead()};
+function menuOpen(o){$('menuList').hidden=!o;$('menuBtn').setAttribute('aria-expanded',o)}
+$('menuBtn').onclick=e=>{e.stopPropagation();menuOpen($('menuList').hidden)};
+$('menuList').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.hasAttribute('data-keep'))menuOpen(false)});
+document.addEventListener('click',e=>{if(!$('actMenu').contains(e.target))menuOpen(false)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')menuOpen(false)});
+function stepChap(d){const cs=[...$('chap').options].map(o=>o.value),i=cs.indexOf($('chap').value)+d;
+  if(i>=0&&i<cs.length){$('chap').value=cs[i];show();scrollTo(0,0);return}
+  const bs=[...$('book').options].map(o=>o.value),bi=bs.indexOf($('book').value)+d;if(bi<0||bi>=bs.length)return;
+  $('book').value=bs[bi];fillChaps(d<0?Object.keys(bible.books[bs[bi]]).pop():null);scrollTo(0,0);}
+$('prevCh').onclick=()=>stepChap(-1);$('nextCh').onclick=()=>stepChap(1);
+applyRead();
 $('book').onchange=()=>fillChaps();$('ver').onchange=()=>load(true);$('chap').onchange=show;
 function refText(){const b=$('book').value,c=$('chap').value;
   const ns=[...picked].map(Number).sort((a,b)=>a-b);if(!ns.length)return b+' '+c;
