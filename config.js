@@ -1,1 +1,1 @@
-window.SB_CONFIG={url:'https://vxzittsgudnvnrkcbiux.supabase.co',key:'PASTE-YOUR-ANON-KEY-HERE'};
+window.SB_CONFIG={url:'https://vxzittsgudnvnrkcbiux.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4eml0dHNndWRudm5ya2NiaXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTY4NDIsImV4cCI6MjEwNjQ5Mjg0Mn0.McTA3BvEwQYEKu47K62csbqwYN6Uv7ozejbkiSezsko'};
