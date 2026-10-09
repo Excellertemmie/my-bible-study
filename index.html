@@ -229,8 +229,8 @@ let bible={books:{}},editing=null,picked=new Set(),vaultFilter=null,quizMode=fal
 // --- Study Together (Phase 1): Supabase project settings ---
 // Replace these two values with your own Supabase project's URL and anon (public) key.
 // The anon key is meant to be public — real security comes from Row Level Security rules in the database, not from hiding this key.
-const SUPABASE_URL='https://YOUR-PROJECT-REF.supabase.co';
-const SUPABASE_ANON_KEY='YOUR-ANON-PUBLIC-KEY';
+const SUPABASE_URL='https://vxzittsgudnvnrkcbiux.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4eml0dHNndWRudm5ya2NiaXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTY4NDIsImV4cCI6MjEwNjQ5Mjg0Mn0.McTA3BvEwQYEKu47K62csbqwYN6Uv7ozejbkiSezsko';
 let sb=null,sbUser=null,currentChannel=null,currentRoom=null;
 function leaveChannel(){if(currentChannel){try{sb.removeChannel(currentChannel)}catch{}currentChannel=null}currentRoom=null;}
 const STATUS_LABEL={joined:'Joined',reading:'Reading',completed_reading:'Finished reading',ready_to_pray:'Ready to pray',completed:'Completed'};
