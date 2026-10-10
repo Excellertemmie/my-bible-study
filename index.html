@@ -421,12 +421,6 @@ async function trSessionUI(out,s,members,gate,render){
   card.append(h('h3','',ct.title),h('p','tag','Topic: '+ct.topic+' · Session '+s.seq));
   if(gate.prev_topic&&s.seq===gate.target)card.append(h('p','meta','Last session\'s topic: '+gate.prev_topic));
   if(closed)card.append(h('p','panel','✅ Session closed. It locks in '+trLeft(s.closed_at)+' — read it again until then.'));
-  {const host=!!trUI.staff;
-    const rows=members.map(m=>{const r=h('div','row');r.style.cssText='align-items:center;justify-content:space-between;flex-wrap:nowrap';const isDone=done.some(x=>x.user_id===m.user_id);
-      r.append(h('span','',m.display_name+(m.user_id===me?' (you)':'')+(m.user_id===trUI.host?' · host':'')+' — '+(isDone?'✓ done':'not done')));
-      if(host&&m.user_id!==me&&m.user_id!==trUI.host){const b=h('button','btn del','Remove');b.onclick=async()=>{if(!confirm('Remove '+m.display_name+' from this room? Their answers in this room will be deleted.'))return;b.disabled=true;
-        try{await trCall('tr_remove_member',{p_room:s.room_id,p_user:m.user_id});render()}catch(e){alert(e.message);b.disabled=false}};r.append(b)}return r});
-    card.append(fold('Members ('+members.length+')',host?'Tap to manage or remove members':'',rows))}
   const steps=['Passages','Lesson','Questions','Prayer'],bar=h('div','row'),body=h('div','');card.append(bar,body);
   const ans=(u,i)=>answers.find(x=>x.user_id===u&&x.question_index===i);
   const all=members.every(m=>qs.every(q=>ans(m.user_id,q.index)));
@@ -452,7 +446,7 @@ async function trSessionUI(out,s,members,gate,render){
     if(cur<3){const b=h('button','btn','Next →');b.onclick=()=>{trUI.step[s.id]=cur+1;draw();scrollTo(0,0)};nav.append(b)}body.append(nav)};
   draw();}
 
-function trMembersCard(out,id,room,members,reqs,isHost,isStaff,render){
+function trMembersCard(out,id,room,members,reqs,isHost,isStaff,render,dn){
   const me=sbUser.id,act=async(fn,args,ask)=>{if(ask&&!confirm(ask))return;try{await trCall(fn,args);render()}catch(e){alert(e.message)}};
   if(isStaff&&reqs.length){const rq=reqs.map(x=>{const r=h('div','panel');r.style.margin='6px 0';r.append(h('strong','',x.display_name),h('span','meta',x.by_host?' · was removed by the host':' · wants to rejoin'));
       if(x.by_host&&!isHost)r.append(h('p','meta','Only the host can decide this one.'));
@@ -460,7 +454,7 @@ function trMembersCard(out,id,room,members,reqs,isHost,isStaff,render){
         a.onclick=()=>act('tr_decide_request',{p_room:id,p_user:x.user_id,p_approve:true});d.onclick=()=>act('tr_decide_request',{p_room:id,p_user:x.user_id,p_approve:false});bar.append(a,d);r.append(bar)}
       return r});const f=fold('🔔 Join requests ('+reqs.length+')','Tap to review',rq);f.open=true;out.append(f)}
   const rows=members.map(m=>{const isMe=m.user_id===me,mHost=m.user_id===room.host_id,r=h('div','panel');r.style.margin='6px 0';
-    r.append(h('strong','',m.display_name+(isMe?' (you)':'')),h('span','meta',mHost?' · host':m.role==='cohost'?' · co-host':''));
+    r.append(h('strong','',m.display_name+(isMe?' (you)':'')),h('span','meta',(mHost?' · host':m.role==='cohost'?' · co-host':'')+(dn?(dn.has(m.user_id)?' · ✓ done':' · not done'):'')));
     const bar=h('div','row');bar.style.marginTop='6px';const btn=(l,c,fn)=>{const b=h('button','btn '+c,l);b.onclick=fn;bar.append(b)};
     if(isHost&&!isMe){btn(m.role==='cohost'?'Remove co-host':'Make co-host','alt',()=>act('tr_set_role',{p_room:id,p_user:m.user_id,p_role:m.role==='cohost'?'member':'cohost'}));
       btn('Make host','alt',()=>act('tr_transfer_host',{p_room:id,p_user:m.user_id},'Make '+m.display_name+' the host? You will become a co-host.'))}
@@ -469,7 +463,7 @@ function trMembersCard(out,id,room,members,reqs,isHost,isStaff,render){
   const lv=h('button','btn del','Leave room');lv.style.marginTop='8px';
   lv.onclick=async()=>{if(!confirm('Leave "'+room.name+'"? Your answers in this room will be deleted.'))return;
     try{await trCall('tr_leave_room',{p_room:id});try{if(localStorage.getItem('lastRoom')===id)localStorage.removeItem('lastRoom')}catch{}togetherStart()}catch(e){alert(e.message)}};
-  out.append(fold('Members ('+members.length+')',isStaff?'Manage people in this room':'Tap to see who is here',[...rows,lv]))}
+  out.append(fold('Members ('+members.length+')',isStaff?'Manage people and see who is done':'See who is here and who is done',[...rows,lv]))}
 
 async function trOpenRoom(id){if(!trHasName()){openTogether();trNameForm(()=>trOpenRoom(id));return}leaveChannel();clearTimeout(trUI.timer);try{localStorage.setItem('lastRoom',id)}catch{}
   const box=$('togetherView');box.innerHTML='<p class="hint">Opening room…</p>';
@@ -485,7 +479,7 @@ async function trOpenRoom(id){if(!trHasName()){openTogether();trNameForm(()=>trO
     const mr=h('div','row');trUI.host=room.host_id;const isHost=room.host_id===sbUser.id;const myRole=(members.find(m=>m.user_id===sbUser.id)||{}).role,isStaff=isHost||myRole==='cohost';trUI.staff=isStaff;
     members.forEach(m=>mr.append(h('span','badge',m.display_name+(m.user_id===sbUser.id?' (you)':'')+(m.user_id===room.host_id?' · host':m.role==='cohost'?' · co-host':''))));
     const link=location.origin+location.pathname+'?room='+room.code,cp=h('button','btn alt','Invite · '+room.code);
-    cp.onclick=()=>{(navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>{cp.textContent='Link copied ✓';setTimeout(()=>cp.textContent='Invite · '+room.code,1500)}).catch(()=>prompt('Copy this link',link))};mr.append(cp);out.append(mr);trMembersCard(out,id,room,members,(r6&&r6.data)||[],isHost,isStaff,render);
+    cp.onclick=()=>{(navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>{cp.textContent='Link copied ✓';setTimeout(()=>cp.textContent='Invite · '+room.code,1500)}).catch(()=>prompt('Copy this link',link))};mr.append(cp);out.append(mr);const dn=open?new Set(((await sb.from('tr_done').select('user_id').eq('session_id',open.id)).data||[]).map(x=>x.user_id)):null;trMembersCard(out,id,room,members,(r6&&r6.data)||[],isHost,isStaff,render,dn);
     if(viewS){const b=h('button','back','← Sessions');b.onclick=()=>{trUI.view=null;render()};out.append(b);await trSessionUI(out,viewS,members,gate,render)}
     else if(gate.needed&&!gate.passed)trGateUI(out,id,att,members,nm,render,'gate',gate);
     else{if(gate.needed)trGateUI(out,id,att,members,nm,render,'help',gate);
