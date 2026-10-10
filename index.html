@@ -321,7 +321,11 @@ $('tmQuiz').onclick=()=>{leaveChannel();history.replaceState(null,'',location.pa
 // ===== Study Together v2: rooms, sessions, the "last topic" gate, 8-hour lock =====
 const trUI={step:{},view:null,timer:null};
 const trLeft=c=>{const ms=new Date(c).getTime()+8*36e5-Date.now();if(ms<=0)return'locking now';return Math.floor(ms/36e5)+'h '+Math.floor(ms%36e5/6e4)+'m'};
-const trCall=async(fn,args)=>{const {data,error}=await sb.rpc(fn,args);if(error)throw error;return data};
+const trNet=e=>/failed to fetch|networkerror|load failed|network request/i.test(String((e&&e.message)||e));
+const trNetMsg='Connection problem. Check your internet and try again.';
+async function trRetry(fn,n=2){for(let i=0;;i++){try{const r=await fn();if(r&&r.error&&trNet(r.error))throw r.error;return r}catch(e){if(i>=n||!trNet(e))throw e;await new Promise(r=>setTimeout(r,900*(i+1)))}}}
+const trCall=async(fn,args)=>{let r;try{r=await trRetry(()=>sb.rpc(fn,args))}catch(e){throw new Error(trNet(e)?trNetMsg:(e.message||String(e)))}
+  if(r.error)throw r.error;return r.data};
 function trBack(box,fn,label){const b=h('button','back','← '+(label||'Back'));b.onclick=fn;box.append(b)}
 function trWarn(box,e){box.append(h('p','panel warn',String((e&&e.message)||e)))}
 function trInput(ph,max){const i=document.createElement('input');i.placeholder=ph;i.maxLength=max||200;i.setAttribute('aria-label',ph);return i}
@@ -432,7 +436,8 @@ async function trSessionUI(out,s,members,gate,render){
     if(cur===1){const l=ct.lesson||{};if(l.intro)body.append(h('p','',l.intro));(l.sections||[]).forEach(x=>{body.append(h('h3','',x.heading),h('p','',x.body))});if(l.summary){const p=h('div','panel');p.append(h('p','',l.summary));body.append(p)}}
     if(cur===2){qs.forEach(q=>{const p=h('div','panel');p.append(h('strong','','Question '+(q.index+1)),h('p','',q.text));const my=ans(me,q.index);
       if(!my&&!closed){p.append(h('p','hint','🔒 Everyone\'s answers are revealed once you\'ve answered.'));const ta=document.createElement('textarea');ta.setAttribute('aria-label','Your answer');const sb2=h('button','btn','Submit answer');
-        sb2.onclick=async()=>{const v=ta.value.trim();if(!v)return;sb2.disabled=true;const {error}=await sb.from('tr_answers').insert({session_id:s.id,question_index:q.index,user_id:me,answer:v});if(error){alert(error.message);sb2.disabled=false}else render()};p.append(ta,sb2)}
+        sb2.onclick=async()=>{const v=ta.value.trim();if(!v)return;sb2.disabled=true;let er=null;try{er=(await trRetry(()=>sb.from('tr_answers').insert({session_id:s.id,question_index:q.index,user_id:me,answer:v}))).error}catch(e){er=e}
+          if(er&&er.code!=='23505'){alert(trNet(er)?trNetMsg:er.message);sb2.disabled=false}else render()};p.append(ta,sb2)}
       else if(my){p.append(h('p','tag','You'),h('p','',my.answer));members.filter(m=>m.user_id!==me).forEach(m=>{const x=ans(m.user_id,q.index);p.append(h('p','tag',m.display_name),h('p','',x?x.answer:'Hasn\'t answered yet.'))})}
       body.append(p)})}
     if(cur===3){if(!all){const pn=h('div','panel'),mine=qs.filter(q=>ans(me,q.index)).length;pn.append(h('p','','🔒 Prayer points unlock when everyone has answered all the questions.'));
