@@ -261,9 +261,17 @@ async function ensureAuth(){if(!sb){if(typeof window.supabase==='undefined')thro
   const {data,error}=await sb.auth.signInAnonymously();
   if(error)throw new Error('Could not connect: '+error.message);
   sbUser=data.user;return sbUser;}
-function getStudyName(){let n=localStorage.getItem('studyName');
-  if(!n){n=(prompt('What name should your study partner see?')||'').trim()||'Friend';localStorage.setItem('studyName',n)}
-  return n;}
+function getStudyName(){return (localStorage.getItem('trUsername')||'').trim()}
+function trHasName(){return getStudyName().length>=2}
+function trNameForm(next){const box=$('togetherView');box.innerHTML='';const cur=getStudyName();
+  if(cur){const b=h('button','back','← Cancel');b.onclick=next;box.append(b)}
+  box.append(h('h2','',cur?'Change your username':'Choose a username'),h('p','hint','This is the name everyone in your study rooms will see, so pick one they\'ll recognise (2–20 characters).'));
+  const inp=document.createElement('input');inp.placeholder='Username (e.g. Temmie)';inp.maxLength=20;inp.value=cur;inp.setAttribute('aria-label','Username');
+  const btn=h('button','btn',cur?'Save username':'Continue'),msg=h('p','meta','');msg.setAttribute('aria-live','polite');
+  btn.onclick=async()=>{const n=inp.value.trim().replace(/\s+/g,' ');if(n.length<2){msg.textContent='Use at least 2 characters.';return}
+    if(!/^[\p{L}\p{N} ._-]+$/u.test(n)){msg.textContent='Use letters, numbers, spaces, dots, dashes or underscores only.';return}
+    btn.disabled=true;try{await ensureAuth();await trCall('tr_set_name',{p_name:n});localStorage.setItem('trUsername',n);next()}catch(e){msg.textContent=e.message;btn.disabled=false}};
+  box.append(inp,btn,msg)}
 function roomCode(){return Array.from({length:8},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]).join('');}
 const store={get:()=>{try{return JSON.parse(localStorage.getItem('entries')||'[]')}catch{return[]}},
   set:v=>{try{localStorage.setItem('entries',JSON.stringify(v))}catch{alert('Could not save. Browser storage may be full or blocked.')}}};
@@ -319,8 +327,10 @@ function trWarn(box,e){box.append(h('p','panel warn',String((e&&e.message)||e)))
 function trInput(ph,max){const i=document.createElement('input');i.placeholder=ph;i.maxLength=max||200;i.setAttribute('aria-label',ph);return i}
 
 function togetherStart(){leaveChannel();clearTimeout(trUI.timer);trUI.view=null;const box=$('togetherView');box.innerHTML='';
+  if(sbReady()&&!trHasName()){trNameForm(togetherStart);return}
   if(!sbReady()){box.append(h('p','panel warn','Study Together isn\'t set up yet on this deployment. The app\'s developer needs to add Supabase connection details first.'));return}
   box.append(h('h2','','Study rooms'),h('p','hint','Private rooms where you study one topic together, a session at a time.'));
+  const un=h('p','meta','Your username: '+getStudyName()+' · '),chg=h('button','back','Change');chg.style.cssText='display:inline;min-height:0;padding:0';chg.onclick=()=>trNameForm(togetherStart);un.append(chg);box.append(un);
   const row=h('div','row');const c=h('button','btn','New room');c.onclick=trCreateForm;const j=h('button','btn alt','Join with code');j.onclick=()=>togetherJoinForm();row.append(c,j);box.append(row);
   const list=h('div','');list.append(h('p','hint','Loading your rooms…'));box.append(list);
   (async()=>{try{await ensureAuth();const {data,error}=await sb.from('tr_members').select('room_id,tr_rooms(id,name,code)').eq('user_id',sbUser.id);if(error)throw error;
@@ -335,11 +345,11 @@ function trCreateForm(){const box=$('togetherView');box.innerHTML='';trBack(box,
     try{await ensureAuth();const d=await trCall('tr_create_room',{p_name:n,p_display:getStudyName()});trOpenRoom(d[0].id)}catch(e){msg.textContent=e.message;btn.disabled=false}};
   box.append(name,btn,msg);}
 
-function togetherJoinForm(prefill){const box=$('togetherView');box.innerHTML='';trBack(box,togetherStart,'Rooms');
+function togetherJoinForm(prefill){if(!trHasName()){trNameForm(()=>togetherJoinForm(prefill));return}const box=$('togetherView');box.innerHTML='';trBack(box,togetherStart,'Rooms');
   box.append(h('h2','','Join a room'));
   const code=trInput('Room code',12);code.value=prefill||'';const btn=h('button','btn','Join'),msg=h('p','meta','');
   btn.onclick=async()=>{const c=code.value.trim().toUpperCase();if(!c){msg.textContent='Enter the room code.';return}btn.disabled=true;
-    try{await ensureAuth();const id=await trCall('tr_join',{p_code:c,p_display:getStudyName()});history.replaceState(null,'',location.pathname);trOpenRoom(id)}catch(e){msg.textContent=e.message;btn.disabled=false}};
+    try{await ensureAuth();const id=await trCall('tr_join',{p_code:c,p_display:getStudyName()});history.replaceState(null,'',location.pathname);trOpenRoom(id)}catch(e){msg.textContent=e.message;btn.disabled=false;if(/username/i.test(e.message)){const cb=h('button','btn alt','Change username');cb.onclick=()=>trNameForm(()=>togetherJoinForm(c));box.append(cb)}}};
   box.append(code,btn,msg);}
 
 function trGateUI(out,id,att,members,nm,render,mode,gate){
@@ -358,18 +368,45 @@ function trGateUI(out,id,att,members,nm,render,mode,gate){
     if(w.length)card.append(h('p','meta','⏳ Waiting for '+w.join(', ')+' to try. If nobody remembers, you\'ll get a free pass.'));}
   out.append(card);}
 
-function trNewForm(out,id,render){
-  const card=h('div','panel');card.append(h('h3','','Start a session'),h('p','hint','Enter a topic. We\'ll prepare the passages, a lesson, questions and prayer points for everyone in the room.'));
-  const t=trInput('Topic (e.g. Trusting God in hard times)'),btn=h('button','btn','Create session'),msg=h('p','meta','');msg.setAttribute('aria-live','polite');
-  btn.onclick=async()=>{const topic=t.value.trim();if(!topic)return;let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
-    btn.disabled=true;msg.textContent='Preparing your session… this can take up to 30 seconds.';
-    try{const r=await fetch('/api/lesson',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify({topic})});
-      if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode.')}
-      const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');localStorage.setItem('pass',pass);
-      await trCall('tr_create_session',{p_room:id,p_topic:topic,p_title:d.title,p_passages:d.passages,p_lesson:d.lesson,p_questions:d.questions.map((text,i)=>({index:i,text})),p_prayer:d.prayerPoints});
-      render();
-    }catch(e){msg.textContent=navigator.onLine?e.message:'You are offline.';btn.disabled=false}};
-  card.append(t,btn,msg);out.append(card);}
+async function trApi(path,body){let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)throw new Error('Passcode needed.');
+  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:JSON.stringify(body)});
+  if(r.status===401){localStorage.removeItem('pass');throw new Error('Wrong passcode.')}
+  const d=await r.json();if(!r.ok)throw new Error(d.error||'Something went wrong.');localStorage.setItem('pass',pass);return d}
+
+function trNewForm(out,id,render,series){
+  const card=h('div','panel');out.append(card);
+  const inSeries=!!(series&&series.next_index<series.topics.length);let mode='single';
+  const paintSession=()=>{
+    if(inSeries){card.append(h('h3','','Session '+(series.next_index+1)+' of '+series.topics.length),h('p','tag','Theme: '+series.theme),h('p','hint','Next topic in your series. You can edit it before you start.'))}
+    else card.append(h('h3','','Start a session'),h('p','hint','Enter a topic. We\'ll prepare the passages, a lesson, questions and prayer points for everyone in the room.'));
+    const t=trInput('Topic (e.g. Trusting God in hard times)'),btn=h('button','btn','Create session'),msg=h('p','meta','');msg.setAttribute('aria-live','polite');
+    if(inSeries)t.value=series.topics[series.next_index].title;
+    btn.onclick=async()=>{const topic=t.value.trim();if(!topic)return;btn.disabled=true;msg.textContent='Preparing your session… this can take up to 30 seconds.';
+      try{const d=await trApi('/api/lesson',{topic});
+        await trCall('tr_create_session',{p_room:id,p_topic:topic,p_title:d.title,p_passages:d.passages,p_lesson:d.lesson,p_questions:d.questions.map((text,i)=>({index:i,text})),p_prayer:d.prayerPoints});
+        if(inSeries){try{await trCall('tr_series_advance',{p_room:id})}catch{}}
+        render();
+      }catch(e){msg.textContent=navigator.onLine?e.message:'You are offline.';btn.disabled=false}};
+    card.append(t,btn,msg);
+    if(inSeries){const end=h('button','back','End this series');end.onclick=async()=>{if(confirm('End the series "'+series.theme+'"? Your past sessions stay.')){try{await trCall('tr_series_end',{p_room:id});render()}catch(e){msg.textContent=e.message}}};card.append(end)}};
+  const paintSeries=()=>{card.append(h('h3','','Start a theme series'),h('p','hint','Pick a theme and how many sessions. We\'ll suggest a topic for each one, and you can rename or remove them.'));
+    const th=trInput('Theme (e.g. Walking in faith)'),num=document.createElement('select');num.setAttribute('aria-label','Number of sessions');
+    for(let i=2;i<=10;i++)num.append(new Option(i+' sessions',i));num.value='4';
+    const go=h('button','btn','Suggest topics'),msg=h('p','meta',''),list=h('div','');msg.setAttribute('aria-live','polite');let tp=[];
+    const drawList=()=>{list.innerHTML='';
+      tp.forEach((x,i)=>{const r=h('div','row');r.style.flexWrap='nowrap';const inp=trInput('Topic '+(i+1));inp.value=x;inp.style.cssText='flex:1;min-width:0';inp.oninput=()=>{tp[i]=inp.value};
+        const rm=h('button','btn alt','✕');rm.setAttribute('aria-label','Remove topic '+(i+1));rm.onclick=()=>{tp.splice(i,1);drawList()};r.append(inp,rm);list.append(r)});
+      if(tp.length){const st=h('button','btn','Start series ('+tp.length+' session'+(tp.length>1?'s':'')+')');
+        st.onclick=async()=>{const clean=tp.map(x=>x.trim()).filter(Boolean);if(!clean.length)return;st.disabled=true;
+          try{await trCall('tr_create_series',{p_room:id,p_theme:th.value.trim(),p_topics:clean.map(title=>({title}))});render()}catch(e){msg.textContent=e.message;st.disabled=false}};list.append(st)}};
+    go.onclick=async()=>{const theme=th.value.trim();if(!theme){msg.textContent='Enter a theme first.';return}go.disabled=true;msg.textContent='Planning your series…';
+      try{const d=await trApi('/api/theme',{theme,count:+num.value});tp=d.topics.map(x=>x.title);msg.textContent='Edit any topic below, or tap ✕ to remove it.';drawList()}catch(e){msg.textContent=navigator.onLine?e.message:'You are offline.'}go.disabled=false};
+    card.append(th,num,go,msg,list)};
+  const paint=()=>{card.innerHTML='';
+    if(inSeries)return paintSession();
+    const row=h('div','row');[['single','Single topic'],['series','Theme series']].forEach(([k,l])=>{const c=h('span','chip'+(mode===k?' on':''),l);c.onclick=()=>{mode=k;paint()};row.append(c)});card.append(row);
+    mode==='single'?paintSession():paintSeries()};
+  paint();}
 
 async function trSessionUI(out,s,members,gate,render){
   const [c,a,d]=await Promise.all([sb.from('tr_session_content').select('*').eq('session_id',s.id).maybeSingle(),sb.from('tr_answers').select('*').eq('session_id',s.id),sb.from('tr_done').select('user_id').eq('session_id',s.id)]);
@@ -379,6 +416,12 @@ async function trSessionUI(out,s,members,gate,render){
   card.append(h('h3','',ct.title),h('p','tag','Topic: '+ct.topic+' · Session '+s.seq));
   if(gate.prev_topic&&s.seq===gate.target)card.append(h('p','meta','Last session\'s topic: '+gate.prev_topic));
   if(closed)card.append(h('p','panel','✅ Session closed. It locks in '+trLeft(s.closed_at)+' — read it again until then.'));
+  {const host=trUI.host===me;
+    const rows=members.map(m=>{const r=h('div','row');r.style.cssText='align-items:center;justify-content:space-between;flex-wrap:nowrap';const isDone=done.some(x=>x.user_id===m.user_id);
+      r.append(h('span','',m.display_name+(m.user_id===me?' (you)':'')+(m.user_id===trUI.host?' · host':'')+' — '+(isDone?'✓ done':'not done')));
+      if(host&&m.user_id!==me){const b=h('button','btn del','Remove');b.onclick=async()=>{if(!confirm('Remove '+m.display_name+' from this room? Their answers in this room will be deleted.'))return;b.disabled=true;
+        try{await trCall('tr_remove_member',{p_room:s.room_id,p_user:m.user_id});render()}catch(e){alert(e.message);b.disabled=false}};r.append(b)}return r});
+    card.append(fold('Members ('+members.length+')',host?'Tap to manage or remove members':'',rows))}
   const steps=['Passages','Lesson','Questions','Prayer'],bar=h('div','row'),body=h('div','');card.append(bar,body);
   const ans=(u,i)=>answers.find(x=>x.user_id===u&&x.question_index===i);
   const all=members.every(m=>qs.every(q=>ans(m.user_id,q.index)));
@@ -392,7 +435,10 @@ async function trSessionUI(out,s,members,gate,render){
         sb2.onclick=async()=>{const v=ta.value.trim();if(!v)return;sb2.disabled=true;const {error}=await sb.from('tr_answers').insert({session_id:s.id,question_index:q.index,user_id:me,answer:v});if(error){alert(error.message);sb2.disabled=false}else render()};p.append(ta,sb2)}
       else if(my){p.append(h('p','tag','You'),h('p','',my.answer));members.filter(m=>m.user_id!==me).forEach(m=>{const x=ans(m.user_id,q.index);p.append(h('p','tag',m.display_name),h('p','',x?x.answer:'Hasn\'t answered yet.'))})}
       body.append(p)})}
-    if(cur===3){if(!all)body.append(h('p','panel','🔒 Prayer points unlock when everyone has answered all the questions.'));
+    if(cur===3){if(!all){const pn=h('div','panel'),mine=qs.filter(q=>ans(me,q.index)).length;pn.append(h('p','','🔒 Prayer points unlock when everyone has answered all the questions.'));
+        if(mine<qs.length)pn.append(h('p','meta','You have answered '+mine+' of '+qs.length+'. Finish yours first.'));
+        else members.forEach(m=>{const n=qs.filter(q=>ans(m.user_id,q.index)).length;pn.append(h('p','meta',(n===qs.length?'✓ ':'⏳ ')+m.display_name+(m.user_id===me?' (you)':'')+': '+n+' of '+qs.length+' answered'))});
+        body.append(pn)}
       else{(ct.prayer||[]).forEach(x=>{const p=h('div','panel');p.append(h('p','',x));body.append(p)});
         if(!closed){const iDone=done.some(x=>x.user_id===me);if(iDone)body.append(h('p','meta','✓ You\'re done. '+done.length+' of '+members.length+' finished. The session closes when everyone is done.'));
           else{const b=h('button','btn','Done');b.onclick=async()=>{b.disabled=true;try{await trCall('tr_mark_done',{p_session:s.id});render()}catch(e){alert(e.message);b.disabled=false}};body.append(b)}}}}
@@ -400,24 +446,28 @@ async function trSessionUI(out,s,members,gate,render){
     if(cur<3){const b=h('button','btn','Next →');b.onclick=()=>{trUI.step[s.id]=cur+1;draw();scrollTo(0,0)};nav.append(b)}body.append(nav)};
   draw();}
 
-async function trOpenRoom(id){leaveChannel();clearTimeout(trUI.timer);try{localStorage.setItem('lastRoom',id)}catch{}
+async function trOpenRoom(id){if(!trHasName()){openTogether();trNameForm(()=>trOpenRoom(id));return}leaveChannel();clearTimeout(trUI.timer);try{localStorage.setItem('lastRoom',id)}catch{}
   const box=$('togetherView');box.innerHTML='<p class="hint">Opening room…</p>';
   try{await ensureAuth()}catch(e){box.innerHTML='';trWarn(box,e);return}
   trUI.view=null;let ch=null;
   const render=async()=>{if(currentChannel!==ch)return;try{
-    const [r1,r2,r3,r4]=await Promise.all([sb.from('tr_rooms').select('*').eq('id',id).maybeSingle(),sb.from('tr_members').select('user_id,display_name').eq('room_id',id),sb.from('tr_sessions').select('*').eq('room_id',id).order('seq',{ascending:false}),sb.rpc('tr_gate_state',{p_room:id})]);
+    const [r1,r2,r3,r4,r5]=await Promise.all([sb.from('tr_rooms').select('*').eq('id',id).maybeSingle(),sb.from('tr_members').select('user_id,display_name').eq('room_id',id),sb.from('tr_sessions').select('*').eq('room_id',id).order('seq',{ascending:false}),sb.rpc('tr_gate_state',{p_room:id}),sb.from('tr_series').select('*').eq('room_id',id).eq('active',true).maybeSingle()]);
     if(r1.error||!r1.data)throw new Error('Room not found, or you are not a member.');if(r4.error)throw r4.error;
-    const room=r1.data,members=r2.data||[],sessions=r3.data||[],gate=r4.data,nm=u=>(members.find(m=>m.user_id===u)||{}).display_name||'Someone';
+    const room=r1.data,members=r2.data||[],sessions=r3.data||[],gate=r4.data,series=(r5&&r5.data)||null,nm=u=>(members.find(m=>m.user_id===u)||{}).display_name||'Someone';
     const att=(await sb.from('tr_attempts').select('*').eq('room_id',id).eq('seq',gate.target)).data||[];
     const out=h('div',''),latest=sessions[0],open=latest&&!latest.closed_at?latest:null,viewS=trUI.view&&sessions.find(s=>s.id===trUI.view);gate.open=!!open;
     trBack(out,togetherStart,'Rooms');out.append(h('h2','',room.name));
-    const mr=h('div','row');members.forEach(m=>mr.append(h('span','badge',m.display_name+(m.user_id===sbUser.id?' (you)':''))));
+    const mr=h('div','row');trUI.host=room.created_by;const isHost=room.created_by===sbUser.id;
+    members.forEach(m=>{const mine_=m.user_id===sbUser.id,b=h('span','badge',m.display_name+(mine_?' (you)':'')+(m.user_id===room.created_by?' · host':''));
+      if(isHost&&!mine_){const x=h('button','back','✕');x.style.cssText='min-height:0;padding:0 0 0 8px';x.setAttribute('aria-label','Remove '+m.display_name);
+        x.onclick=async()=>{if(!confirm('Remove '+m.display_name+' from this room? Their answers in this room will be deleted.'))return;try{await trCall('tr_remove_member',{p_room:id,p_user:m.user_id});render()}catch(e){alert(e.message)}};b.append(x)}
+      mr.append(b)});
     const link=location.origin+location.pathname+'?room='+room.code,cp=h('button','btn alt','Invite · '+room.code);
     cp.onclick=()=>{(navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>{cp.textContent='Link copied ✓';setTimeout(()=>cp.textContent='Invite · '+room.code,1500)}).catch(()=>prompt('Copy this link',link))};mr.append(cp);out.append(mr);
     if(viewS){const b=h('button','back','← Sessions');b.onclick=()=>{trUI.view=null;render()};out.append(b);await trSessionUI(out,viewS,members,gate,render)}
     else if(gate.needed&&!gate.passed)trGateUI(out,id,att,members,nm,render,'gate',gate);
     else{if(gate.needed)trGateUI(out,id,att,members,nm,render,'help',gate);
-      if(open)await trSessionUI(out,open,members,gate,render);else trNewForm(out,id,render);
+      if(open)await trSessionUI(out,open,members,gate,render);else trNewForm(out,id,render,series);
       const past=sessions.filter(s=>s!==open);
       if(past.length){out.append(h('h3','','Past sessions'));past.forEach(s=>{const p=h('div','panel'),locked=s.closed_at&&Date.now()>=new Date(s.closed_at).getTime()+8*36e5;
         p.append(h('strong','','Session '+s.seq),h('span','meta',' · '+new Date(s.created_at).toLocaleDateString()+(locked?' · 🔒 Locked':' · open to read, locks in '+trLeft(s.closed_at))));
@@ -427,7 +477,7 @@ async function trOpenRoom(id){leaveChannel();clearTimeout(trUI.timer);try{localS
   const sched=()=>{clearTimeout(trUI.timer);trUI.timer=setTimeout(()=>{const ae=document.activeElement;if(ae&&box.contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName)&&ae.value){sched();return}render()},ae0()?4000:400)};
   const ae0=()=>{const ae=document.activeElement;return ae&&box.contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName)&&ae.value};
   ch=currentChannel=sb.channel('tr-'+id+'-'+Date.now());
-  ['tr_sessions','tr_attempts','tr_members','tr_answers','tr_done'].forEach(t=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},sched));ch.subscribe();
+  ['tr_sessions','tr_attempts','tr_members','tr_answers','tr_done','tr_series'].forEach(t=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},sched));ch.subscribe();
   await render();}
 
 (function checkTogetherLink(){const m=location.search.match(/[?&]room=([A-Z0-9]+)/i);
