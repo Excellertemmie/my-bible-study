@@ -338,8 +338,9 @@ function togetherStart(){leaveChannel();clearTimeout(trUI.timer);trUI.view=null;
   const row=h('div','row');const c=h('button','btn','New room');c.onclick=trCreateForm;const j=h('button','btn alt','Join with code');j.onclick=()=>togetherJoinForm();row.append(c,j);box.append(row);
   const list=h('div','');list.append(h('p','hint','Loading your rooms…'));box.append(list);
   (async()=>{try{await ensureAuth();const {data,error}=await sb.from('tr_members').select('room_id,tr_rooms(id,name,code)').eq('user_id',sbUser.id);if(error)throw error;
+    const pend={};try{const {data:pq}=await sb.from('tr_blocked').select('room_id').eq('status','pending');(pq||[]).forEach(x=>{pend[x.room_id]=(pend[x.room_id]||0)+1})}catch{}
     list.innerHTML='';if(!data.length){list.append(h('p','hint','No rooms yet. Create one or join with a code.'));return}
-    data.forEach(m=>{const r=m.tr_rooms;if(!r)return;const card=h('div','panel');card.style.cursor='pointer';card.append(h('strong','',r.name),h('div','meta','Code '+r.code));card.onclick=()=>trOpenRoom(r.id);list.append(card)});
+    data.forEach(m=>{const r=m.tr_rooms;if(!r)return;const card=h('div','panel');card.style.cursor='pointer';card.append(h('strong','',r.name),h('div','meta','Code '+r.code+(pend[r.id]?' · 🔔 '+pend[r.id]+' join request'+(pend[r.id]>1?'s':''):'')));card.onclick=()=>trOpenRoom(r.id);list.append(card)});
   }catch(e){list.innerHTML='';trWarn(list,e)}})();}
 
 function trCreateForm(){const box=$('togetherView');box.innerHTML='';trBack(box,togetherStart,'Rooms');
@@ -353,7 +354,7 @@ function togetherJoinForm(prefill){if(!trHasName()){trNameForm(()=>togetherJoinF
   box.append(h('h2','','Join a room'));
   const code=trInput('Room code',12);code.value=prefill||'';const btn=h('button','btn','Join'),msg=h('p','meta','');
   btn.onclick=async()=>{const c=code.value.trim().toUpperCase();if(!c){msg.textContent='Enter the room code.';return}btn.disabled=true;
-    try{await ensureAuth();const id=await trCall('tr_join',{p_code:c,p_display:getStudyName()});history.replaceState(null,'',location.pathname);trOpenRoom(id)}catch(e){msg.textContent=e.message;btn.disabled=false;if(/username/i.test(e.message)){const cb=h('button','btn alt','Change username');cb.onclick=()=>trNameForm(()=>togetherJoinForm(c));box.append(cb)}}};
+    try{await ensureAuth();const id=await trCall('tr_join',{p_code:c,p_display:getStudyName()});history.replaceState(null,'',location.pathname);if(!id){msg.textContent='Request sent. The host has been notified and can let you back in. Check back later.';return}trOpenRoom(id)}catch(e){msg.textContent=e.message;btn.disabled=false;if(/username/i.test(e.message)){const cb=h('button','btn alt','Change username');cb.onclick=()=>trNameForm(()=>togetherJoinForm(c));box.append(cb)}}};
   box.append(code,btn,msg);}
 
 function trGateUI(out,id,att,members,nm,render,mode,gate){
@@ -420,10 +421,10 @@ async function trSessionUI(out,s,members,gate,render){
   card.append(h('h3','',ct.title),h('p','tag','Topic: '+ct.topic+' · Session '+s.seq));
   if(gate.prev_topic&&s.seq===gate.target)card.append(h('p','meta','Last session\'s topic: '+gate.prev_topic));
   if(closed)card.append(h('p','panel','✅ Session closed. It locks in '+trLeft(s.closed_at)+' — read it again until then.'));
-  {const host=trUI.host===me;
+  {const host=!!trUI.staff;
     const rows=members.map(m=>{const r=h('div','row');r.style.cssText='align-items:center;justify-content:space-between;flex-wrap:nowrap';const isDone=done.some(x=>x.user_id===m.user_id);
       r.append(h('span','',m.display_name+(m.user_id===me?' (you)':'')+(m.user_id===trUI.host?' · host':'')+' — '+(isDone?'✓ done':'not done')));
-      if(host&&m.user_id!==me){const b=h('button','btn del','Remove');b.onclick=async()=>{if(!confirm('Remove '+m.display_name+' from this room? Their answers in this room will be deleted.'))return;b.disabled=true;
+      if(host&&m.user_id!==me&&m.user_id!==trUI.host){const b=h('button','btn del','Remove');b.onclick=async()=>{if(!confirm('Remove '+m.display_name+' from this room? Their answers in this room will be deleted.'))return;b.disabled=true;
         try{await trCall('tr_remove_member',{p_room:s.room_id,p_user:m.user_id});render()}catch(e){alert(e.message);b.disabled=false}};r.append(b)}return r});
     card.append(fold('Members ('+members.length+')',host?'Tap to manage or remove members':'',rows))}
   const steps=['Passages','Lesson','Questions','Prayer'],bar=h('div','row'),body=h('div','');card.append(bar,body);
@@ -451,24 +452,40 @@ async function trSessionUI(out,s,members,gate,render){
     if(cur<3){const b=h('button','btn','Next →');b.onclick=()=>{trUI.step[s.id]=cur+1;draw();scrollTo(0,0)};nav.append(b)}body.append(nav)};
   draw();}
 
+function trMembersCard(out,id,room,members,reqs,isHost,isStaff,render){
+  const me=sbUser.id,act=async(fn,args,ask)=>{if(ask&&!confirm(ask))return;try{await trCall(fn,args);render()}catch(e){alert(e.message)}};
+  if(isStaff&&reqs.length){const rq=reqs.map(x=>{const r=h('div','panel');r.style.margin='6px 0';r.append(h('strong','',x.display_name),h('span','meta',x.by_host?' · was removed by the host':' · wants to rejoin'));
+      if(x.by_host&&!isHost)r.append(h('p','meta','Only the host can decide this one.'));
+      else{const bar=h('div','row');bar.style.marginTop='6px';const a=h('button','btn','Let them in'),d=h('button','btn alt','Decline');
+        a.onclick=()=>act('tr_decide_request',{p_room:id,p_user:x.user_id,p_approve:true});d.onclick=()=>act('tr_decide_request',{p_room:id,p_user:x.user_id,p_approve:false});bar.append(a,d);r.append(bar)}
+      return r});const f=fold('🔔 Join requests ('+reqs.length+')','Tap to review',rq);f.open=true;out.append(f)}
+  const rows=members.map(m=>{const isMe=m.user_id===me,mHost=m.user_id===room.host_id,r=h('div','panel');r.style.margin='6px 0';
+    r.append(h('strong','',m.display_name+(isMe?' (you)':'')),h('span','meta',mHost?' · host':m.role==='cohost'?' · co-host':''));
+    const bar=h('div','row');bar.style.marginTop='6px';const btn=(l,c,fn)=>{const b=h('button','btn '+c,l);b.onclick=fn;bar.append(b)};
+    if(isHost&&!isMe){btn(m.role==='cohost'?'Remove co-host':'Make co-host','alt',()=>act('tr_set_role',{p_room:id,p_user:m.user_id,p_role:m.role==='cohost'?'member':'cohost'}));
+      btn('Make host','alt',()=>act('tr_transfer_host',{p_room:id,p_user:m.user_id},'Make '+m.display_name+' the host? You will become a co-host.'))}
+    if(isStaff&&!isMe&&!mHost)btn('Remove','del',()=>act('tr_remove_member',{p_room:id,p_user:m.user_id},'Remove '+m.display_name+' from this room? Their answers in this room will be deleted.'));
+    if(bar.children.length)r.append(bar);return r});
+  const lv=h('button','btn del','Leave room');lv.style.marginTop='8px';
+  lv.onclick=async()=>{if(!confirm('Leave "'+room.name+'"? Your answers in this room will be deleted.'))return;
+    try{await trCall('tr_leave_room',{p_room:id});try{if(localStorage.getItem('lastRoom')===id)localStorage.removeItem('lastRoom')}catch{}togetherStart()}catch(e){alert(e.message)}};
+  out.append(fold('Members ('+members.length+')',isStaff?'Manage people in this room':'Tap to see who is here',[...rows,lv]))}
+
 async function trOpenRoom(id){if(!trHasName()){openTogether();trNameForm(()=>trOpenRoom(id));return}leaveChannel();clearTimeout(trUI.timer);try{localStorage.setItem('lastRoom',id)}catch{}
   const box=$('togetherView');box.innerHTML='<p class="hint">Opening room…</p>';
   try{await ensureAuth()}catch(e){box.innerHTML='';trWarn(box,e);return}
   trUI.view=null;let ch=null;
   const render=async()=>{if(currentChannel!==ch)return;try{
-    const [r1,r2,r3,r4,r5]=await Promise.all([sb.from('tr_rooms').select('*').eq('id',id).maybeSingle(),sb.from('tr_members').select('user_id,display_name').eq('room_id',id),sb.from('tr_sessions').select('*').eq('room_id',id).order('seq',{ascending:false}),sb.rpc('tr_gate_state',{p_room:id}),sb.from('tr_series').select('*').eq('room_id',id).eq('active',true).maybeSingle()]);
+    const [r1,r2,r3,r4,r5,r6]=await Promise.all([sb.from('tr_rooms').select('*').eq('id',id).maybeSingle(),sb.from('tr_members').select('user_id,display_name,role').eq('room_id',id),sb.from('tr_sessions').select('*').eq('room_id',id).order('seq',{ascending:false}),sb.rpc('tr_gate_state',{p_room:id}),sb.from('tr_series').select('*').eq('room_id',id).eq('active',true).maybeSingle(),sb.from('tr_blocked').select('*').eq('room_id',id).eq('status','pending')]);
     if(r1.error||!r1.data)throw new Error('Room not found, or you are not a member.');if(r4.error)throw r4.error;
     const room=r1.data,members=r2.data||[],sessions=r3.data||[],gate=r4.data,series=(r5&&r5.data)||null,nm=u=>(members.find(m=>m.user_id===u)||{}).display_name||'Someone';
     const att=(await sb.from('tr_attempts').select('*').eq('room_id',id).eq('seq',gate.target)).data||[];
     const out=h('div',''),latest=sessions[0],open=latest&&!latest.closed_at?latest:null,viewS=trUI.view&&sessions.find(s=>s.id===trUI.view);gate.open=!!open;
     trBack(out,togetherStart,'Rooms');out.append(h('h2','',room.name));
-    const mr=h('div','row');trUI.host=room.created_by;const isHost=room.created_by===sbUser.id;
-    members.forEach(m=>{const mine_=m.user_id===sbUser.id,b=h('span','badge',m.display_name+(mine_?' (you)':'')+(m.user_id===room.created_by?' · host':''));
-      if(isHost&&!mine_){const x=h('button','back','✕');x.style.cssText='min-height:0;padding:0 0 0 8px';x.setAttribute('aria-label','Remove '+m.display_name);
-        x.onclick=async()=>{if(!confirm('Remove '+m.display_name+' from this room? Their answers in this room will be deleted.'))return;try{await trCall('tr_remove_member',{p_room:id,p_user:m.user_id});render()}catch(e){alert(e.message)}};b.append(x)}
-      mr.append(b)});
+    const mr=h('div','row');trUI.host=room.host_id;const isHost=room.host_id===sbUser.id;const myRole=(members.find(m=>m.user_id===sbUser.id)||{}).role,isStaff=isHost||myRole==='cohost';trUI.staff=isStaff;
+    members.forEach(m=>mr.append(h('span','badge',m.display_name+(m.user_id===sbUser.id?' (you)':'')+(m.user_id===room.host_id?' · host':m.role==='cohost'?' · co-host':''))));
     const link=location.origin+location.pathname+'?room='+room.code,cp=h('button','btn alt','Invite · '+room.code);
-    cp.onclick=()=>{(navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>{cp.textContent='Link copied ✓';setTimeout(()=>cp.textContent='Invite · '+room.code,1500)}).catch(()=>prompt('Copy this link',link))};mr.append(cp);out.append(mr);
+    cp.onclick=()=>{(navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>{cp.textContent='Link copied ✓';setTimeout(()=>cp.textContent='Invite · '+room.code,1500)}).catch(()=>prompt('Copy this link',link))};mr.append(cp);out.append(mr);trMembersCard(out,id,room,members,(r6&&r6.data)||[],isHost,isStaff,render);
     if(viewS){const b=h('button','back','← Sessions');b.onclick=()=>{trUI.view=null;render()};out.append(b);await trSessionUI(out,viewS,members,gate,render)}
     else if(gate.needed&&!gate.passed)trGateUI(out,id,att,members,nm,render,'gate',gate);
     else{if(gate.needed)trGateUI(out,id,att,members,nm,render,'help',gate);
@@ -477,6 +494,11 @@ async function trOpenRoom(id){if(!trHasName()){openTogether();trNameForm(()=>trO
       if(past.length){out.append(h('h3','','Past sessions'));past.forEach(s=>{const p=h('div','panel'),locked=s.closed_at&&Date.now()>=new Date(s.closed_at).getTime()+8*36e5;
         p.append(h('strong','','Session '+s.seq),h('span','meta',' · '+new Date(s.created_at).toLocaleDateString()+(locked?' · 🔒 Locked':' · open to read, locks in '+trLeft(s.closed_at))));
         if(!locked){const b=h('button','btn alt','View');b.style.marginLeft='12px';b.onclick=()=>{trUI.view=s.id;render()};p.append(b)}out.append(p)})}}
+    if(isHost){const dz=h('div','');dz.style.marginTop='32px';const cb=h('button','btn del','Close room permanently');
+      cb.onclick=async()=>{const t=prompt('This permanently deletes "'+room.name+'" with all its sessions, answers and members. Type the room name to confirm:');if(t===null)return;
+        if(t.trim().toLowerCase()!==room.name.trim().toLowerCase()){alert('The name didn\'t match. Nothing was deleted.');return}
+        cb.disabled=true;try{await trCall('tr_delete_room',{p_room:id});try{if(localStorage.getItem('lastRoom')===id)localStorage.removeItem('lastRoom')}catch{}togetherStart()}catch(e){alert(e.message);cb.disabled=false}};
+      dz.append(cb);out.append(dz)}
     if(currentChannel===ch)box.replaceChildren(out);
   }catch(e){box.innerHTML='';trBack(box,togetherStart,'Rooms');trWarn(box,e)}};
   const sched=()=>{clearTimeout(trUI.timer);trUI.timer=setTimeout(()=>{const ae=document.activeElement;if(ae&&box.contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName)&&ae.value){sched();return}render()},ae0()?4000:400)};
