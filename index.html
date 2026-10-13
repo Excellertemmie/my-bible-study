@@ -95,6 +95,48 @@ section[hidden]{display:none}
 .sug{padding:12px 14px}.sug p{margin:2px 0 8px}
 .back{background:none;border:0;color:var(--gold-dark);font:600 .95rem system-ui,sans-serif;padding:8px 0;min-height:44px;cursor:pointer}
 ::selection{background:var(--gold);color:#1a140c}
+:root{--r:20px;--bg:#f6f0e4;--paper:rgba(255,255,255,.72);--ink:#251e14;--mute:#6f6556;--deep:rgba(251,247,238,.78);--deep-ink:#251e14;--gold:#c8812a;--gold-dark:#9a5b17;--line:rgba(60,40,10,.12);--ring:#c8812a;--warn:#b8432f;--sh:0 6px 24px rgba(80,55,20,.10);--g1:rgba(200,129,42,.16);--g2:rgba(220,170,110,.18);}
+:root[data-theme="light"]{--bg:#f6f0e4;--paper:rgba(255,255,255,.72);--ink:#251e14;--mute:#6f6556;--deep:rgba(251,247,238,.78);--deep-ink:#251e14;--gold:#c8812a;--gold-dark:#9a5b17;--line:rgba(60,40,10,.12);--ring:#c8812a;--warn:#b8432f;--sh:0 6px 24px rgba(80,55,20,.10);--g1:rgba(200,129,42,.16);--g2:rgba(220,170,110,.18);}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15110d;--paper:rgba(255,255,255,.065);--ink:#f5efe4;--mute:#b0a595;--deep:rgba(24,19,14,.72);--deep-ink:#f5efe4;--gold:#e9b24f;--gold-dark:#f1cd8a;--line:rgba(255,255,255,.11);--ring:#e9b24f;--warn:#ef7a5f;--sh:0 8px 30px rgba(0,0,0,.30);--g1:rgba(233,178,79,.16);--g2:rgba(170,95,45,.14);}}
+:root[data-theme="dark"]{--bg:#15110d;--paper:rgba(255,255,255,.065);--ink:#f5efe4;--mute:#b0a595;--deep:rgba(24,19,14,.72);--deep-ink:#f5efe4;--gold:#e9b24f;--gold-dark:#f1cd8a;--line:rgba(255,255,255,.11);--ring:#e9b24f;--warn:#ef7a5f;--sh:0 8px 30px rgba(0,0,0,.30);--g1:rgba(233,178,79,.16);--g2:rgba(170,95,45,.14);}
+body{font:16px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;padding-bottom:calc(112px + env(safe-area-inset-bottom));
+  background-color:var(--bg);background-image:radial-gradient(900px 520px at 88% -8%,var(--g1),transparent 62%),radial-gradient(700px 520px at -12% 42%,var(--g2),transparent 62%);background-attachment:fixed}
+h1,h2,h3,.panel strong,.entry strong,.fold strong,.ref strong,#text,.v,.entry p{font-family:ui-serif,"New York","Iowan Old Style",Georgia,serif}
+h2{font-size:1.7rem;letter-spacing:-.02em}
+h3{border:0;padding-bottom:0;margin:26px 0 10px;font-size:1.15rem}
+header{position:sticky;top:0;z-index:40;background:var(--deep);color:var(--ink);-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);border-bottom:1px solid var(--line);padding-bottom:12px}
+h1{font-size:1.55rem;letter-spacing:-.02em}
+main{padding-top:var(--space-2)}
+nav{left:14px;right:14px;bottom:calc(10px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;padding:6px;gap:4px;border-radius:28px;background:var(--deep);
+  -webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);border:1px solid var(--line);box-shadow:0 12px 36px rgba(0,0,0,.32);z-index:100}
+nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:22px;color:var(--mute);font-size:.7rem;font-weight:600;padding:8px 2px;min-height:54px;box-shadow:none}
+nav button::before{content:"";width:22px;height:22px;background:currentColor;-webkit-mask:var(--ic) center/contain no-repeat;mask:var(--ic) center/contain no-repeat}
+nav button[aria-selected=true]{color:#1a140c;background:var(--gold);box-shadow:0 4px 14px color-mix(in srgb,var(--gold) 40%,transparent)}
+nav button[data-t=home]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3%2011l9-8%209%208v9a1%201%200%200%201-1%201h-5v-6H9v6H4a1%201%200%200%201-1-1z%27/%3E%3C/svg%3E")}
+nav button[data-t=read]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M2%205c3-1%206-1%2010%201%204-2%207-2%2010-1v14c-3-1-6-1-10%201-4-2-7-2-10-1z%27/%3E%3Cpath%20d%3D%27M12%206v14%27/%3E%3C/svg%3E")}
+nav button[data-t=study]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M2%209l10-5%2010%205-10%205z%27/%3E%3Cpath%20d%3D%27M6%2011v5c3%202%209%202%2012%200v-5%27/%3E%3C/svg%3E")}
+nav button[data-t=notes]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5%203h14v18H5z%27/%3E%3Cpath%20d%3D%27M9%208h6M9%2012h6M9%2016h4%27/%3E%3C/svg%3E")}
+.panel,.entry,.stat div,.modal-card,.menu-list{background:var(--paper);-webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
+.panel,.entry{padding:16px 18px}
+.stat div{border-radius:18px;flex:1;text-align:center;min-width:0}
+select,input,textarea{background:var(--paper);border:1px solid var(--line);border-radius:14px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.btn{background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 82%,#fff),var(--gold));border:0;color:#1a140c;border-radius:14px;font-weight:650;box-shadow:0 4px 14px color-mix(in srgb,var(--gold) 32%,transparent)}
+.btn.alt{background:var(--paper);color:var(--ink);border:1px solid var(--line);box-shadow:none;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.btn.del{background:none;color:var(--warn);border:0;box-shadow:none}
+.btn.on{background:var(--gold);color:#1a140c}
+.menu-list .btn{box-shadow:none;background:none;border:0;color:var(--ink)}
+.modes{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:4px;gap:4px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.modes .btn,.modes .btn.alt{border:0;box-shadow:none;background:none;color:var(--ink);border-radius:14px}
+.modes .btn.on{background:var(--gold);color:#1a140c}
+.chip,.badge{border-radius:999px;background:var(--paper);border:1px solid var(--line)}
+.chip.on{background:var(--gold);color:#1a140c;border-color:var(--gold)}
+.bar{border-radius:999px;height:8px;background:var(--line)}.bar>div{border-radius:999px;background:linear-gradient(90deg,var(--gold-dark),var(--gold))}
+.modal{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.modal-card{border-radius:26px}
+.duo .panel{padding:14px}
+.panel .meta,.panel .tag{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+section:not([hidden]){animation:rise .32s ease both}
 @media print{
   header,nav,.noprint{display:none!important}
   body{padding-bottom:0}
@@ -291,6 +333,7 @@ function vaultSaveUI(ref,text,anchorBtn){
   cancelBtn.onclick=()=>{panel.remove();delete anchorBtn._panel;};
   anchorBtn.after(panel);anchorBtn._panel=panel;tagInput.focus();}
 const P={get:()=>{try{return JSON.parse(localStorage.getItem('progress')||'{}')}catch{return{}}},set:v=>{try{localStorage.setItem('progress',JSON.stringify(v))}catch{}}};
+const lastAct={get:()=>{try{return JSON.parse(localStorage.getItem('lastAct')||'null')}catch{return null}},set:v=>{try{localStorage.setItem('lastAct',JSON.stringify(v))}catch{}}};
 const lastRead={get:()=>{try{return JSON.parse(localStorage.getItem('lastRead')||'null')}catch{return null}},set:v=>{try{localStorage.setItem('lastRead',JSON.stringify(v))}catch{}}};
 
 let notesMode=false;
@@ -462,7 +505,7 @@ function trMembersCard(out,id,room,members,reqs,isHost,isStaff,render,dn){
     if(bar.children.length)r.append(bar);return r});
   const lv=h('button','btn del','Leave room');lv.style.marginTop='8px';
   lv.onclick=async()=>{if(!confirm('Leave "'+room.name+'"? Your answers in this room will be deleted.'))return;
-    try{await trCall('tr_leave_room',{p_room:id});try{if(localStorage.getItem('lastRoom')===id)localStorage.removeItem('lastRoom')}catch{}togetherStart()}catch(e){alert(e.message)}};
+    try{await trCall('tr_leave_room',{p_room:id});try{if(localStorage.getItem('lastRoom')===id)localStorage.removeItem('lastRoom');const _a=lastAct.get();if(_a&&_a.id===id)localStorage.removeItem('lastAct')}catch{}togetherStart()}catch(e){alert(e.message)}};
   out.append(fold('Members ('+members.length+')',isStaff?'Manage people and see who is done':'See who is here and who is done',[...rows,lv]))}
 
 async function trOpenRoom(id){if(!trHasName()){openTogether();trNameForm(()=>trOpenRoom(id));return}leaveChannel();clearTimeout(trUI.timer);try{localStorage.setItem('lastRoom',id)}catch{}
@@ -472,7 +515,7 @@ async function trOpenRoom(id){if(!trHasName()){openTogether();trNameForm(()=>trO
   const render=async()=>{if(currentChannel!==ch)return;try{
     const [r1,r2,r3,r4,r5,r6]=await Promise.all([sb.from('tr_rooms').select('*').eq('id',id).maybeSingle(),sb.from('tr_members').select('user_id,display_name,role').eq('room_id',id),sb.from('tr_sessions').select('*').eq('room_id',id).order('seq',{ascending:false}),sb.rpc('tr_gate_state',{p_room:id}),sb.from('tr_series').select('*').eq('room_id',id).eq('active',true).maybeSingle(),sb.from('tr_blocked').select('*').eq('room_id',id).eq('status','pending')]);
     if(r1.error||!r1.data)throw new Error('Room not found, or you are not a member.');if(r4.error)throw r4.error;
-    const room=r1.data,members=r2.data||[],sessions=r3.data||[],gate=r4.data,series=(r5&&r5.data)||null,nm=u=>(members.find(m=>m.user_id===u)||{}).display_name||'Someone';
+    if(r1.data)lastAct.set({type:'room',id,title:r1.data.name});const room=r1.data,members=r2.data||[],sessions=r3.data||[],gate=r4.data,series=(r5&&r5.data)||null,nm=u=>(members.find(m=>m.user_id===u)||{}).display_name||'Someone';
     const att=(await sb.from('tr_attempts').select('*').eq('room_id',id).eq('seq',gate.target)).data||[];
     const out=h('div',''),latest=sessions[0],open=latest&&!latest.closed_at?latest:null,viewS=trUI.view&&sessions.find(s=>s.id===trUI.view);gate.open=!!open;
     trBack(out,togetherStart,'Rooms');out.append(h('h2','',room.name));
@@ -491,7 +534,7 @@ async function trOpenRoom(id){if(!trHasName()){openTogether();trNameForm(()=>trO
     if(isHost){const dz=h('div','');dz.style.marginTop='32px';const cb=h('button','btn del','Close room permanently');
       cb.onclick=async()=>{const t=prompt('This permanently deletes "'+room.name+'" with all its sessions, answers and members. Type the room name to confirm:');if(t===null)return;
         if(t.trim().toLowerCase()!==room.name.trim().toLowerCase()){alert('The name didn\'t match. Nothing was deleted.');return}
-        cb.disabled=true;try{await trCall('tr_delete_room',{p_room:id});try{if(localStorage.getItem('lastRoom')===id)localStorage.removeItem('lastRoom')}catch{}togetherStart()}catch(e){alert(e.message);cb.disabled=false}};
+        cb.disabled=true;try{await trCall('tr_delete_room',{p_room:id});try{if(localStorage.getItem('lastRoom')===id)localStorage.removeItem('lastRoom');const _a=lastAct.get();if(_a&&_a.id===id)localStorage.removeItem('lastAct')}catch{}togetherStart()}catch(e){alert(e.message);cb.disabled=false}};
       dz.append(cb);out.append(dz)}
     if(currentChannel===ch){const oi=box.querySelector('input[data-gate]'),ov=oi?oi.value:'';box.replaceChildren(out);const ni=box.querySelector('input[data-gate]');if(ni&&ov)ni.value=ov}
   }catch(e){box.innerHTML='';trBack(box,togetherStart,'Rooms');trWarn(box,e)}};
@@ -651,20 +694,21 @@ $('snapShare').onclick=()=>{$('snapCanvas').toBlob(async b=>{const file=new File
     alert('Sharing images isn\'t available on this device — downloaded it instead. You can attach it to WhatsApp from your photos.')}
 },'image/png')};
 
-function renderHome(){const lrm=localStorage.getItem('lastRoom');const hb=$('continueBox');
-  setTimeout(()=>{if(lrm&&sbReady()&&!$('home').hidden){const c=h('div','panel');c.append(h('div','meta','Study room'),h('strong','','Continue your study room'));const g=h('button','btn alt','Open');g.style.marginLeft='12px';g.onclick=()=>{openTogether();trOpenRoom(lrm)};c.append(g);hb.prepend(c)}},0);$('stStudies').textContent=S.get().length;$('stVault').textContent=V.get().length;$('stJournal').textContent=store.get().length;
+function renderHome(){$('stStudies').textContent=S.get().length;$('stVault').textContent=V.get().length;$('stJournal').textContent=store.get().length;
   const box=$('continueBox');box.innerHTML='';
   const lr=lastRead.get();
   if(lr){const p=h('div','panel');p.append(h('div','meta','Continue reading'),h('strong','',lr.book+' '+lr.chap));
     const btn=h('button','btn alt','Go');btn.style.marginTop='8px';
     btn.onclick=()=>{document.querySelector('[data-t=read]').click();if($('ver').value!==lr.ver){$('ver').value=lr.ver;load(false);setTimeout(()=>{$('book').value=lr.book;fillChaps(lr.chap)},400)}else{$('book').value=lr.book;fillChaps(lr.chap)}};
     p.append(document.createElement('br'),btn);box.append(p)}
-  const ls=S.get().sort((a,b)=>b.date.localeCompare(a.date))[0];
-  if(ls){const p=h('div','panel');p.append(h('div','meta','Last study'),h('strong','',ls.study.title));
+  const all=S.get().sort((a,b)=>b.date.localeCompare(a.date)),ls=all[0];let act=lastAct.get();
+  if(act&&act.type==='study'&&!all.some(x=>x.id===act.id))act=null;
+  if(!act&&ls)act={type:'study',id:ls.id,title:ls.study.title};
+  if(act){const p=h('div','panel');p.append(h('div','meta','Last study'),h('strong','',act.title),h('div','tag',act.type==='room'?'👥 Study Together':'📖 Personal study'));
     const btn=h('button','btn alt','Open');btn.style.marginTop='8px';
-    btn.onclick=()=>{document.querySelector('[data-t=study]').click();openStudy(ls.id)};
-    p.append(document.createElement('br'),btn);box.append(p)}
-  if(!lr&&!ls)box.innerHTML='<p class="hint">Nothing yet — start below.</p>';
+    btn.onclick=()=>{if(act.type==='room'){openTogether();trOpenRoom(act.id)}else{document.querySelector('[data-t=study]').click();openStudy(act.id)}};
+    p.append(btn);box.append(p)}
+  if(!lr&&!act)box.innerHTML='<p class="hint">Nothing yet — start below.</p>';
   renderSuggestion();renderGoals();renderReminder();}
 
 const Suggest={get:()=>{try{return JSON.parse(localStorage.getItem('weeklySuggestion'))}catch{return null}},set:v=>{try{localStorage.setItem('weeklySuggestion',JSON.stringify(v))}catch{}}};
@@ -844,7 +888,7 @@ function buildStudyText(s,answers){let t=s.title+'\n';
     const a=answers&&answers[k+i];if(a)t+='\n  My answer: '+a;t+='\n'})});
   if(s.closingChallenge)t+='\nClosing challenge:\n'+s.closingChallenge+'\n';
   t+='\nPrayer:\n'+s.prayer+'\n';return t;}
-function openStudy(id){const x=S.get().find(y=>y.id===id);if(!x)return;const s=x.study,v=$('stView');v.innerHTML='';$('stForm').hidden=true;v.hidden=false;
+function openStudy(id){try{const _x=S.get().find(x=>x.id===id);if(_x)lastAct.set({type:'study',id,title:_x.study.title})}catch{}const x=S.get().find(y=>y.id===id);if(!x)return;const s=x.study,v=$('stView');v.innerHTML='';$('stForm').hidden=true;v.hidden=false;
   const back=h('button','btn alt noprint','← All studies');back.onclick=stList;
   const archNow=h('button','btn alt noprint',x.archived?'Unarchive':'Archive');
   archNow.onclick=()=>{if(s.seriesId)S.set(S.get().map(y=>y.study.seriesId===s.seriesId?{...y,archived:!x.archived}:y));
