@@ -365,11 +365,11 @@ function trGateUI(out,id,att,members,nm,render,mode,gate){
     card.append(h('h3','','🔔 '+askers.map(m=>m.display_name).join(', ')+(askers.length>1?' need':' needs')+' your help'),h('p','hint','They can\'t remember the last session\'s topic. If you do, type it to give them a pass.'));}
   else{card.append(h('h3','',gate.open?'Enter the last topic to join':'Enter the last topic to continue'),h('p','hint','Type the topic of your previous session from memory. Small spelling slips are fine.'));
     askers.forEach(m=>card.append(h('p','meta','🔔 '+m.display_name+' can\'t remember it either. Your answer here can let them in.')));}
-  const inp=trInput('Last session\'s topic'),go=h('button','btn','Check'),fg=h('button','btn alt',mode==='help'?'I can\'t remember either':'I can\'t remember'),msg=h('p','meta','');msg.setAttribute('aria-live','polite');
-  go.onclick=async()=>{const v=inp.value.trim();if(!v)return;go.disabled=true;try{const ok=await trCall('tr_gate_guess',{p_room:id,p_guess:v});if(ok)render();else{msg.textContent='Not quite. Try again, or tap "I can\'t remember".';go.disabled=false}}catch(e){msg.textContent=e.message;go.disabled=false}};
+  const inp=trInput('Last session\'s topic'),go=h('button','btn','Check'),fg=h('button','btn alt',mode==='help'?'I can\'t remember either':'I can\'t remember'),msg=h('p','meta','');msg.setAttribute('aria-live','polite');msg.textContent=trUI.flash||'';trUI.flash='';inp.setAttribute('data-gate','1');
+  go.onclick=async()=>{const v=inp.value.trim();if(!v)return;go.disabled=true;try{const ok=await trCall('tr_gate_guess',{p_room:id,p_guess:v});if(ok)render();else{trUI.flash='Not quite. Try again, or tap "I can\'t remember".';render()}}catch(e){msg.textContent=e.message;go.disabled=false}};
   fg.onclick=async()=>{fg.disabled=true;try{await trCall('tr_gate_forgot',{p_room:id});render()}catch(e){msg.textContent=e.message;fg.disabled=false}};
   const row=h('div','row');row.append(go,fg);card.append(inp,row,msg);
-  if(mode!=='help'&&mine){const last=new Date(mine.created_at);const w=members.filter(m=>m.user_id!==me&&!att.some(a=>a.user_id===m.user_id&&new Date(a.created_at)>last)).map(m=>m.display_name);
+  if(mode!=='help'&&mine){const last=new Date(Math.min(...att.filter(a=>a.user_id===me).map(a=>+new Date(a.created_at))));const w=members.filter(m=>m.user_id!==me&&!att.some(a=>a.user_id===m.user_id&&new Date(a.created_at)>last)).map(m=>m.display_name);
     if(w.length)card.append(h('p','meta','⏳ Waiting for '+w.join(', ')+' to try. If nobody remembers, you\'ll get a free pass.'));}
   out.append(card);}
 
@@ -493,9 +493,9 @@ async function trOpenRoom(id){if(!trHasName()){openTogether();trNameForm(()=>trO
         if(t.trim().toLowerCase()!==room.name.trim().toLowerCase()){alert('The name didn\'t match. Nothing was deleted.');return}
         cb.disabled=true;try{await trCall('tr_delete_room',{p_room:id});try{if(localStorage.getItem('lastRoom')===id)localStorage.removeItem('lastRoom')}catch{}togetherStart()}catch(e){alert(e.message);cb.disabled=false}};
       dz.append(cb);out.append(dz)}
-    if(currentChannel===ch)box.replaceChildren(out);
+    if(currentChannel===ch){const oi=box.querySelector('input[data-gate]'),ov=oi?oi.value:'';box.replaceChildren(out);const ni=box.querySelector('input[data-gate]');if(ni&&ov)ni.value=ov}
   }catch(e){box.innerHTML='';trBack(box,togetherStart,'Rooms');trWarn(box,e)}};
-  const sched=()=>{clearTimeout(trUI.timer);trUI.timer=setTimeout(()=>{const ae=document.activeElement;if(ae&&box.contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName)&&ae.value){sched();return}render()},ae0()?4000:400)};
+  const sched=()=>{clearTimeout(trUI.timer);trUI.timer=setTimeout(()=>{const ae=document.activeElement;if(ae&&box.contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName)&&ae.value&&!ae.hasAttribute('data-gate')){sched();return}render()},ae0()?4000:400)};
   const ae0=()=>{const ae=document.activeElement;return ae&&box.contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName)&&ae.value};
   ch=currentChannel=sb.channel('tr-'+id+'-'+Date.now());
   ['tr_sessions','tr_attempts','tr_members','tr_answers','tr_done','tr_series'].forEach(t=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},sched));ch.subscribe();
