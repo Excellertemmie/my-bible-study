@@ -176,6 +176,18 @@ select{-webkit-appearance:none;appearance:none;padding-right:42px;background-rep
 #splash div{display:flex;align-items:center;gap:12px;color:#f5efe4;font:700 1.7rem ui-serif,"New York",Georgia,serif;letter-spacing:-.02em;animation:rise .7s ease both}
 #splash i{width:30px;height:30px;background:#e9b24f;-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%3E%3Cpath%20d%3D%27M12%200c.6%206.5%205.5%2011.4%2012%2012-6.5.6-11.4%205.5-12%2012-.6-6.5-5.5-11.4-12-12C6.5%2011.4%2011.4%206.5%2012%200z%27/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%3E%3Cpath%20d%3D%27M12%200c.6%206.5%205.5%2011.4%2012%2012-6.5.6-11.4%205.5-12%2012-.6-6.5-5.5-11.4-12-12C6.5%2011.4%2011.4%206.5%2012%200z%27/%3E%3C/svg%3E") center/contain no-repeat}
 @keyframes splashOut{to{opacity:0;visibility:hidden}}
+
+select{color-scheme:dark}:root[data-theme="light"] select{color-scheme:light}
+select option{background:#241d15;color:#f5efe4}
+:root[data-theme="light"] select option{background:#fffaf0;color:#251e14}
+.btn{gap:.5em}.btn .ico,#themeBtn .ico{margin:0}
+.btn.block{width:100%}
+.modes{max-width:460px}.modes .btn{flex:1;min-width:0;white-space:nowrap}
+.wk{justify-content:space-between}.wd{flex:0 1 64px;min-width:0}
+.duo{align-items:stretch}.duo .panel{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.duo .panel strong{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.duo .panel .btn{margin-top:auto}
+.duo .panel .btn{margin-top:10px}
 @media print{
   header,nav,.noprint{display:none!important}
   body{padding-bottom:0}
@@ -246,22 +258,9 @@ select{-webkit-appearance:none;appearance:none;padding-right:42px;background-rep
   <p class="hint" id="tr"></p>
 </section>
 <section id="study" hidden role="tabpanel" aria-labelledby="tab-study">
-<div class="row"><button class="btn alt" id="modeStudy">📖 Study</button><button class="btn alt" id="mTogether">👥 Together</button><button class="btn alt" id="modeQuiz">🧠 Quiz</button></div>
+<div class="modes"><button class="btn alt" id="modeStudy">📖 Study</button><button class="btn alt" id="mTogether">👥 Together</button><button class="btn alt" id="modeQuiz">🧠 Quiz</button></div>
 <div id="stForm"><input id="topic" maxlength="200" placeholder="What do you want to explore? (e.g. God's purpose for my life)" aria-label="Topic">
-<label class="chk"><input type="checkbox" id="seriesChk"> This is a multi-week series</label>
-<div id="seriesFields" hidden>
-  <div class="row">
-    <input id="seriesDuration" type="number" min="1" max="12" value="4" style="max-width:90px" aria-label="Duration">
-    <select id="seriesUnit" aria-label="Duration unit"><option value="weeks">weeks</option><option value="months">months</option></select>
-    <select id="seriesFreq" aria-label="Sessions per week"><option value="1">1× per week</option><option value="2">2× per week</option><option value="3">3× per week</option></select>
-  </div>
-  <p class="meta" id="seriesCountHint"></p>
-  <label class="chk"><input type="checkbox" id="manualWeeksChk"> I'd rather list the session topics myself</label>
-  <div id="manualWeeksWrap" hidden>
-    <textarea id="seriesWeeks" placeholder="One topic per session, e.g.:&#10;Faith in God&#10;Walking by faith&#10;Walking by faith (part 2)&#10;The purpose of having faith in God" aria-label="Session topics, one per line"></textarea>
-  </div>
-  <p class="hint">Give the overall topic above (e.g. "Faith"). Left as-is, the AI plans each session's specific focus itself so they build on each other without repeating.</p>
-</div>
+
 <div class="row"><select id="stype" aria-label="Study type">
   <option value="personal">Personal Bible Study</option>
   <option value="youth">Youth Bible Study</option>
@@ -284,7 +283,22 @@ select{-webkit-appearance:none;appearance:none;padding-right:42px;background-rep
   <option value="intermediate" selected>Intermediate</option>
   <option value="advanced">Advanced</option>
 </select></div>
-<div class="row"><select id="depth" aria-label="Length"><option value="quick">Quick (5–10 min)</option><option value="standard" selected>Standard (20–30 min)</option><option value="deep">Deep (45+ min)</option></select><button class="btn" id="gen">Start study</button></div>
+<div class="row"><select id="depth" aria-label="Length"><option value="quick">Quick (5–10 min)</option><option value="standard" selected>Standard (20–30 min)</option><option value="deep">Deep (45+ min)</option></select></div>
+<label class="chk"><input type="checkbox" id="seriesChk"> This is a multi-week series</label>
+<div id="seriesFields" hidden>
+  <div class="row">
+    <input id="seriesDuration" type="number" min="1" max="12" value="4" style="max-width:90px" aria-label="Duration">
+    <select id="seriesUnit" aria-label="Duration unit"><option value="weeks">weeks</option><option value="months">months</option></select>
+    <select id="seriesFreq" aria-label="Sessions per week"><option value="1">1× per week</option><option value="2">2× per week</option><option value="3">3× per week</option></select>
+  </div>
+  <p class="meta" id="seriesCountHint"></p>
+  <label class="chk"><input type="checkbox" id="manualWeeksChk"> I'd rather list the session topics myself</label>
+  <div id="manualWeeksWrap" hidden>
+    <textarea id="seriesWeeks" placeholder="One topic per session, e.g.:&#10;Faith in God&#10;Walking by faith&#10;Walking by faith (part 2)&#10;The purpose of having faith in God" aria-label="Session topics, one per line"></textarea>
+  </div>
+  <p class="hint">Give the overall topic above (e.g. "Faith"). Left as-is, the AI plans each session's specific focus itself so they build on each other without repeating.</p>
+</div>
+<div class="row"><button class="btn block" id="gen">Start study</button></div>
 <p class="meta" id="stMsg" aria-live="polite">Creating a new study needs internet. Saved studies work offline.</p><div id="stList"></div></div>
 <div id="quizForm" hidden><input id="qTopic" maxlength="200" placeholder="What should the quiz cover? (e.g. The Book of Ruth)" aria-label="Quiz topic">
 <div class="row"><select id="qCount" aria-label="Number of questions"><option value="5">5 questions</option><option value="10" selected>10 questions</option><option value="15">15 questions</option></select>
@@ -745,14 +759,14 @@ function renderHome(){renderGreet();$('stStudies').textContent=S.get().length;$(
   if(lr){const p=h('div','panel');p.append(h('div','meta','Continue reading'),h('strong','',lr.book+' '+lr.chap));
     const btn=h('button','btn alt','Go');btn.style.marginTop='8px';
     btn.onclick=()=>{document.querySelector('[data-t=read]').click();if($('ver').value!==lr.ver){$('ver').value=lr.ver;load(false);setTimeout(()=>{$('book').value=lr.book;fillChaps(lr.chap)},400)}else{$('book').value=lr.book;fillChaps(lr.chap)}};
-    p.append(document.createElement('br'),btn);box.append(p)}
+    p.style.cursor='pointer';p.onclick=btn.onclick;p.append(btn);box.append(p)}
   const all=S.get().sort((a,b)=>b.date.localeCompare(a.date)),ls=all[0];let act=lastAct.get();
   if(act&&act.type==='study'&&!all.some(x=>x.id===act.id))act=null;
   if(!act&&ls)act={type:'study',id:ls.id,title:ls.study.title};
-  if(act){const p=h('div','panel hero hero-a');p.append(h('div','meta','Last study'),h('strong','',act.title),h('div','tag',act.type==='room'?'👥 Study Together':'📖 Personal study'));
+  if(act){const p=h('div','panel hero hero-a');p.append(h('div','meta','Last study'),(()=>{const t=h('strong','',act.title);t.title=act.title;return t})());
     const btn=h('button','btn alt','Open');btn.style.marginTop='8px';
     btn.onclick=()=>{if(act.type==='room'){openTogether();trOpenRoom(act.id)}else{document.querySelector('[data-t=study]').click();openStudy(act.id)}};
-    p.append(btn);box.append(p)}
+    p.style.cursor='pointer';p.onclick=btn.onclick;p.append(btn);box.append(p)}
   if(!lr&&!act)box.innerHTML='<p class="hint">Nothing yet — start below.</p>';
   renderSuggestion();renderGoals();renderReminder();}
 
