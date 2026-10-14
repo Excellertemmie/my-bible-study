@@ -247,6 +247,28 @@ select option{background:#241d15;color:#f5efe4}
 @keyframes espen{0%,100%{transform:translate(0,0)}50%{transform:translate(-7px,6px)}}
 @keyframes eshimmer{50%{opacity:.4}}
 @media(prefers-reduced-motion:reduce){.es svg,.es .tw,.es .pen,.es-glow,.sk{animation:none}.es .dr{animation:none;stroke-dashoffset:0}}
+
+.es svg{overflow:hidden}
+.es-glow,.es .tw{transform:none!important}
+@keyframes esglow{0%,100%{opacity:.07}50%{opacity:.2}}
+@keyframes estw{0%,100%{opacity:.35}50%{opacity:1}}
+.jrow{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.15);border-radius:16px;padding:12px 14px;margin:0 0 8px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s}
+.jrow:active,.jrow:hover{background:rgba(255,255,255,.22)}
+.jic{width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.2);display:grid;place-items:center;flex:none;color:#fff}.jic .ico{margin:0;width:19px;height:19px}
+.jtx{min-width:0;flex:1}.jtx strong{display:block;font:700 1rem -apple-system,"SF Pro Text",system-ui,sans-serif;color:#fff}
+.jtx small{display:block;color:rgba(255,255,255,.82);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jend{color:rgba(255,255,255,.8);flex:none;display:grid;place-items:center}.jend .ico{margin:0;width:18px;height:18px;transition:transform .2s}
+.jrow.open .jend .ico{transform:rotate(180deg)}
+.jprayw{display:none;margin:-2px 0 10px}.jprayw.open{display:block}
+.jprayer{background:rgba(0,0,0,.2);border-radius:14px;padding:12px 14px;font-size:.95rem;line-height:1.55;color:#fff}
+.jnew{background:none;border:0;color:rgba(255,255,255,.85);font-size:.82rem;font-weight:600;padding:8px 2px;margin-top:2px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}.jnew .ico{margin:0;width:15px;height:15px}
+.hlrow{display:flex;gap:12px;justify-content:center;margin:16px 0 8px}
+.hldot{width:42px;height:42px;border-radius:50%;border:2px solid rgba(255,255,255,.55);cursor:pointer;padding:0;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.sheetbtn{width:100%;margin-top:10px;justify-content:flex-start;padding:14px 16px}
+.v.hl{background:color-mix(in srgb,var(--hl) 30%,transparent);border-radius:6px;box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:1px 3px}
+.v.flash{animation:vflash 2.6s ease}@keyframes vflash{0%,60%{background:color-mix(in srgb,var(--gold) 38%,transparent)}100%{background:transparent}}
+.vlink{float:right;background:none;border:0;color:var(--mute);opacity:.5;padding:6px 8px;min-height:32px;border-radius:10px;cursor:pointer}.vlink:hover{opacity:1}.vlink.ok{color:var(--gold);opacity:1}.vlink .ico{margin:0;width:17px;height:17px}
+.ref::after{content:"";display:block;clear:both}
 @media print{
   header,nav,.noprint{display:none!important}
   body{padding-bottom:0}
@@ -291,6 +313,7 @@ select option{background:#241d15;color:#f5efe4}
         <button class="btn" id="toJournal">📝 Journal this passage</button>
         <button class="btn" id="saveVerse">🔖 Save to Vault</button>
         <button class="btn" id="askBtn">💬 Ask about this passage</button>
+        <button class="btn" id="hlBtn">🖍 Highlight</button>
         <button class="btn" id="snapBtn">📸 Snapshot</button>
         <button class="btn" id="toggleProg">📊 Book progress</button>
         <button class="btn" id="chapBtn">📖 Chapter study</button>
@@ -446,7 +469,7 @@ function vaultSaveUI(ref,text,anchorBtn){
   panel.append(tagInput,noteInput,row);
   saveBtn.onclick=()=>{const tag=tagInput.value.trim()||'General';
     V.set(V.get().concat({id:Date.now().toString(36),date:new Date().toISOString(),ref,text,tag,note:noteInput.value.trim()}));
-    panel.remove();delete anchorBtn._panel;anchorBtn.textContent='Saved to Vault ✓';setTimeout(()=>anchorBtn.textContent='📌 Save to Vault',1500);};
+    panel.remove();delete anchorBtn._panel;anchorBtn.classList.add('ok');anchorBtn.title='Saved';setTimeout(()=>{anchorBtn.classList.remove('ok');anchorBtn.title='Save to Vault'},1800);};
   cancelBtn.onclick=()=>{panel.remove();delete anchorBtn._panel;};
   anchorBtn.after(panel);anchorBtn._panel=panel;tagInput.focus();}
 const P={get:()=>{try{return JSON.parse(localStorage.getItem('progress')||'{}')}catch{return{}}},set:v=>{try{localStorage.setItem('progress',JSON.stringify(v))}catch{}}};
@@ -545,11 +568,11 @@ function trNewForm(out,id,render,series){
     if(inSeries){card.append(h('h3','','Session '+(series.next_index+1)+' of '+series.topics.length),h('p','tag','Theme: '+series.theme),h('p','hint','Next topic in your series. You can edit it before you start.'))}
     else card.append(h('h3','','Start a session'),h('p','hint','Enter a topic. We\'ll prepare the passages, a lesson, questions and prayer points for everyone in the room.'));
     const t=trInput('Topic (e.g. Trusting God in hard times)'),btn=h('button','btn','Create session'),msg=h('p','meta','');msg.setAttribute('aria-live','polite');
-    if(inSeries)t.value=series.topics[series.next_index].title;
+    if(inSeries)t.value=series.topics[series.next_index].title;else if(trUI.prefill)t.value=trUI.prefill;
     btn.onclick=async()=>{const topic=t.value.trim();if(!topic)return;btn.disabled=true;msg.textContent='Preparing your session… this can take up to 30 seconds.';
       try{const d=await trApi('/api/lesson',{topic});
         await trCall('tr_create_session',{p_room:id,p_topic:topic,p_title:d.title,p_passages:d.passages,p_lesson:d.lesson,p_questions:d.questions.map((text,i)=>({index:i,text})),p_prayer:d.prayerPoints});
-        if(inSeries){try{await trCall('tr_series_advance',{p_room:id})}catch{}}
+        trUI.prefill='';if(inSeries){try{await trCall('tr_series_advance',{p_room:id})}catch{}}
         render();
       }catch(e){msg.textContent=navigator.onLine?e.message:'You are offline.';btn.disabled=false}};
     card.append(t,btn,msg);
@@ -675,7 +698,7 @@ function show(){picked.clear();const t=$('text');t.innerHTML='';
   const vs=bible.books[$('book').value][$('chap').value];
   Object.entries(vs).forEach(([n,tx])=>{const p=document.createElement('p');p.className='v';p.dataset.n=n;
     const s=document.createElement('sup');s.textContent=n;p.append(s,tx);
-    p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel');updPick()};t.append(p)});
+    p.onclick=()=>{picked.has(n)?picked.delete(n):picked.add(n);p.classList.toggle('sel');updPick()};paintHL(p,n);t.append(p)});
   lastRead.set({ver:$('ver').value,book:$('book').value,chap:$('chap').value});
   const prog=P.get();$('readChk').checked=(prog[$('book').value]||[]).includes($('chap').value);
   $('vaultForm').hidden=true;$('askPanel').hidden=true;$('chapPanel').hidden=true;$('snapPanel').hidden=true;
@@ -743,6 +766,7 @@ async function fetchChapNotes(force){const book=$('book').value,chap=$('chap').v
   }catch(e){$('chapPanel').innerHTML='';$('chapPanel').append(h('p','meta',navigator.onLine?e.message:'You are offline. Connect to the internet to load chapter notes.'))}}
 $('chapBtn').onclick=()=>{$('chapPanel').hidden=!$('chapPanel').hidden;if(!$('chapPanel').hidden)fetchChapNotes(false);};
 
+$('hlBtn').onclick=highlightUI;
 $('saveVerse').onclick=()=>{if(!picked.size){alert('Tap one or more verses first, then Save to Vault.');return}
   $('vaultForm').hidden=false;$('askPanel').hidden=true;$('vTag').focus();};
 $('vCancel').onclick=()=>{$('vaultForm').hidden=true;$('vTag').value='';$('vNote').value='';};
@@ -840,17 +864,12 @@ function renderSuggestion(sug){const box=$('suggestBox');const cached=sug||Sugge
   if(stale&&navigator.onLine&&localStorage.getItem('pass')&&!window._sugTried){window._sugTried=1;fetchSuggestion()}
   box.innerHTML='';const p=h('div','panel sug hero hero-b');
   const refs=cached.passages||[],doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/864e5),ref=refs.length?refs[doy%refs.length]:null;
-  let vs=null;try{vs=ref?parseRef(ref):null}catch{}
-  if(ref&&!vs&&!window._vsTried){window._vsTried=1;setTimeout(()=>renderSuggestion(),1500)}
-  if(ref){if(vs&&vs.length)p.append(h('blockquote','jverse','“'+vs.slice(0,3).map(x=>x[1]).join(' ')+'”'));p.append(h('div','jref','Verse of the day · '+ref))}
-  if(cached.prayer){const pr=h('div','jpray');pr.append(h('span','jtag','Prayer'),h('p','',cached.prayer));pr.onclick=()=>pr.classList.toggle('open');p.append(pr)}
-  p.append(h('div','jtopic',cached.topic));
-  const row=h('div','row');
-  const start=h('button','btn','Start this study');start.onclick=()=>{document.querySelector('[data-t=study]').click();
-    setMode(false);$('seriesChk').checked=false;$('seriesFields').hidden=true;$('topic').value=cached.topic;$('topic').focus()};
-  row.append(start);
-  {const ref2=h('button','btn alt','New topic');ref2.onclick=()=>fetchSuggestion();row.append(ref2)}
-  p.append(row);box.append(p);}
+  const row=(icon,title,sub,fn,chev)=>{const r=h('div','jrow');r.setAttribute('role','button');r.tabIndex=0;const ic=h('span','jic',icon),tx=h('div','jtx'),end=h('span','jend',chev||'›');
+    tx.append(h('strong','',title),h('small','',sub));r.append(ic,tx,end);r.onclick=()=>fn(r);r.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fn(r)}};return r};
+  if(ref)p.append(row('📖','Daily verse',ref+' · Read today\'s scripture',()=>openRef(ref)));
+  p.append(row('🎓','Study',cached.topic+' · Study alone or together',()=>studyChoice(cached.topic)));
+  if(cached.prayer){const pw=h('div','jprayw');const pr=row('🙏','Prayer','End the day with a prayer',r=>{pw.classList.toggle('open');r.classList.toggle('open')},'▾');pw.append(h('div','jprayer',cached.prayer));p.append(pr,pw)}
+  const nw=h('button','jnew','🔄 New topic');nw.onclick=()=>fetchSuggestion();p.append(nw);box.append(p);}
 async function fetchSuggestion(){let pass=localStorage.getItem('pass')||prompt('Enter your app passcode');if(!pass)return;
   $('suggestBox').innerHTML='<p class="hint">Finding a suggestion for this week…</p>';
   try{const r=await fetch('/api/suggestion',{method:'POST',headers:{'Content-Type':'application/json','x-passcode':pass},body:'{}'});
@@ -957,6 +976,28 @@ function pagerRow(page,totalPages,onPrev,onNext){if(totalPages<=1)return null;co
 const ES_ART={'book': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><path class="dr" d="M60 86C49 79 35 77 24 81V47c11-4 25-2 36 5 11-7 25-9 36-5v34c-11-4-25-2-36 5z"/><path class="dr" d="M60 52v34"/><path class="dr" style="animation-delay:.5s" d="M32 60h20M32 68h14M68 60h20M68 68h14"/></g><path class="fl tw" d="M60 12c.8 6 4.200 9.400 10 10.500-5.800 1-9.200 4.500-10 10.500-.8-6-4.200-9.500-10-10.500 5.800-1.100 9.200-4.500 10-10.500z"/><circle class="fl tw" style="animation-delay:.8s" cx="92" cy="30" r="2.4"/><circle class="fl tw" style="animation-delay:1.4s" cx="26" cy="34" r="2"/></svg>', 'quiz': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><rect class="dr" x="30" y="26" width="60" height="68" rx="14"/><path class="dr" style="animation-delay:.4s" d="M50 54a10 10 0 1 1 14 9c-3 2-4 4-4 8"/></g><circle class="fl" cx="60" cy="82" r="2.8"/><circle class="fl tw" style="animation-delay:.6s" cx="96" cy="28" r="2.6"/><circle class="fl tw" style="animation-delay:1.2s" cx="24" cy="40" r="2"/></svg>', 'bookmark': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><path class="dr" d="M42 24h36a4 4 0 0 1 4 4v68L60 82 38 96V28a4 4 0 0 1 4-4z" transform="translate(0 -2)"/></g><path class="fl tw" d="M90 22c.6 4.500 3.200 7 7.500 7.800-4.300.8-6.900 3.400-7.500 7.800-.6-4.400-3.200-7-7.500-7.800 4.300-.8 6.900-3.300 7.500-7.800z"/><circle class="fl tw" style="animation-delay:1s" cx="26" cy="46" r="2.2"/></svg>', 'journal': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><path class="dr" d="M36 24h42a6 6 0 0 1 6 6v60a6 6 0 0 1-6 6H36a6 6 0 0 1-6-6V30a6 6 0 0 1 6-6z"/><path class="dr" style="animation-delay:.5s" d="M40 42h34M40 54h34M40 66h20"/></g><g class="pen ln"><path d="M82 72l12-12 6 6-12 12-8 2z" fill="currentColor" fill-opacity=".18"/></g><circle class="fl tw" style="animation-delay:.9s" cx="26" cy="22" r="2.2"/></svg>', 'people': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><circle class="dr" cx="44" cy="56" r="11"/><path class="dr" d="M24 96c0-12 9-20 20-20s20 8 20 20"/><circle class="dr" style="animation-delay:.3s" cx="78" cy="56" r="11"/><path class="dr" style="animation-delay:.3s" d="M58 96c0-12 9-20 20-20s20 8 20 20"/></g><path class="fl tw" d="M61 34c-6-6-14 0-8 7l8 8 8-8c6-7-2-13-8-7z" transform="translate(0 -8)"/></svg>'};
 function emptyState(kind,title,text,label,fn){const d=document.createElement('div');d.className='es';d.innerHTML=ES_ART[kind]||ES_ART.book;d.append(h('div','es-t',title),h('p','es-p',text));if(label){const b=h('button','btn',label);b.onclick=fn;d.append(b)}return d}
 const goTab=t=>document.querySelector('[data-t='+t+']').click();
+
+function sheet(title,sub,items){const m=document.createElement('div');m.className='modal';const c=h('div','modal-card');c.append(h('strong','',title));if(sub)c.append(h('p','meta',sub));
+  items.forEach(([label,icon,fn])=>{const b=h('button','btn alt sheetbtn',icon+' '+label);b.onclick=()=>{m.remove();fn()};c.append(b)});
+  const x=h('button','back','Cancel');x.onclick=()=>m.remove();c.append(x);m.append(c);m.onclick=e=>{if(e.target===m)m.remove()};document.body.append(m)}
+function openRef(ref){const m=String(ref).match(/^(.+?)\s+(\d+)(?::(\d+))?/);if(!m)return;goTab('read');const bk=bookKey(m[1]);
+  if(!bible.books[bk]){alert('Open this passage from the Read tab.');return}
+  $('book').value=bk;fillChaps(m[2]);
+  if(m[3])setTimeout(()=>{const el=document.querySelector('#text .v[data-n="'+m[3]+'"]');if(el){el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),2600)}},150)}
+function studyChoice(topic){sheet('How do you want to study?','“'+topic+'”',[
+  ['Study alone','📖',()=>{goTab('study');setMode(false);$('seriesChk').checked=false;$('seriesFields').hidden=true;$('topic').value=topic;$('topic').focus()}],
+  ['Study together','👥',()=>{trUI.prefill=topic;openTogether();togetherStart()}]])}
+const HL={get:()=>{try{return JSON.parse(localStorage.getItem('hl')||'{}')}catch{return{}}},set:v=>{try{localStorage.setItem('hl',JSON.stringify(v))}catch{}}};
+const HLC=['#f4d03f','#58c47f','#4aa8f0','#f06ba8','#f59a4a'];
+function paintHL(p,n){const c=HL.get()[$('book').value+'|'+$('chap').value+'|'+n];if(c){p.classList.add('hl');p.style.setProperty('--hl',c)}else{p.classList.remove('hl');p.style.removeProperty('--hl')}}
+function applyHL(color){const map=HL.get(),b=$('book').value,c=$('chap').value;
+  picked.forEach(n=>{const k=b+'|'+c+'|'+n;if(color)map[k]=color;else delete map[k]});HL.set(map);
+  document.querySelectorAll('#text .v').forEach(p=>{paintHL(p,p.dataset.n);p.classList.remove('sel')});picked.clear();updPick()}
+function highlightUI(){if(!picked.size){alert('Tap one or more verses first, then choose a highlight colour.');return}
+  const m=document.createElement('div');m.className='modal';const c=h('div','modal-card');c.append(h('strong','','Highlight colour'));
+  const row=h('div','hlrow');HLC.forEach(col=>{const b=h('button','hldot');b.style.background=col;b.setAttribute('aria-label','Highlight '+col);b.onclick=()=>{applyHL(col);m.remove()};row.append(b)});
+  const rm=h('button','btn alt sheetbtn','Remove highlight');rm.onclick=()=>{applyHL(null);m.remove()};const x=h('button','back','Cancel');x.onclick=()=>m.remove();
+  c.append(row,rm,x);m.append(c);m.onclick=e=>{if(e.target===m)m.remove()};document.body.append(m)}
 function fold(title,sub,nodes){const d=document.createElement('details');d.className='entry fold';const sm=document.createElement('summary');
   sm.append(h('strong','',title));if(sub)sm.append(h('div','meta',sub));d.append(sm);const b=h('div','fold-body');b.append(...nodes);d.append(b);return d}
 let showArchived=false;const pageState={stPage:1,seriesPage:1,archStPage:1,archSeriesPage:1};
@@ -1048,7 +1089,7 @@ function openStudy(id){try{const _x=S.get().find(x=>x.id===id);if(_x)lastAct.set
   v.append(h('h3','','1. Read the passages first'),h('p','tag','Verse text comes from the Bible in this app, not from the AI. Currently showing '+(bible.translation||'')+'.'));
   s.passages.forEach(r=>{const d=h('div','ref');d.append(h('strong','',r));const vs=parseRef(r);
     if(vs){vs.forEach(([n,t])=>{const p=h('p','v');const u=h('sup','',n);p.append(u,t);d.append(p)});
-      const sb=h('button','btn alt noprint','📌 Save to Vault');sb.style.marginTop='6px';
+      const sb=h('button','vlink noprint','🔖');sb.title='Save to Vault';sb.setAttribute('aria-label','Save to Vault');
       sb.onclick=()=>vaultSaveUI(r+' ('+(bible.translation||'')+')',vs.map(([n,t])=>t).join(' '),sb);
       d.append(sb);}
     else d.append(h('p','tag warn','Could not verify this reference in the Bible text. Look it up yourself before relying on it.'));v.append(d)});
@@ -1258,6 +1299,11 @@ if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWor
 /* ---- splash + icon system (replaces emoji with one consistent line-icon set) ---- */
 (function(){const sp=document.getElementById('splash');if(sp){if(sessionStorage.getItem('sp'))sp.remove();else{sessionStorage.setItem('sp','1');setTimeout(()=>sp.remove(),3000)}}
 const P={'🔥':'M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z',
+'🖍':'M9 11l-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4',
+'🎓':'M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5',
+'🙏':'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z',
+'🔄':'M23 4v6h-6M1 20v-6h6M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15',
+'›':'M9 6l6 6-6 6',
 '📖':'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z',
 '📝':'M12 20h9 M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
 '🔖':'M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z',
@@ -1278,7 +1324,7 @@ const P={'🔥':'M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-
 const tail={'→':1,'▾':1,'▴':1};
 const keys=Object.keys(P).sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
 const re=new RegExp('('+keys.join('|')+')\\uFE0F?','g'),has=new RegExp('('+keys.join('|')+')');
-const ok='button,h1,h2,h3,summary,.meta,.tag,.hint,label,.badge,.chip,.stat div,.greet-sub';
+const ok='button,h1,h2,h3,summary,.meta,.tag,.hint,label,.badge,.chip,.stat div,.greet-sub,.jic,.jend';
 const ico=k=>'<svg class="ico'+(tail[k]?' tail':'')+'" viewBox="0 0 24 24" aria-hidden="true"><path d="'+P[k]+'"/></svg>';
 let busy=false;
 function run(root){busy=true;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),list=[];let n;
