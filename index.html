@@ -227,6 +227,26 @@ select option{background:#241d15;color:#f5efe4}
 .sp-tag{margin-top:6px;font:600 .68rem -apple-system,system-ui,sans-serif;letter-spacing:.32em;text-transform:uppercase;color:#b0a595;opacity:0;animation:rise .7s ease 1.2s forwards}
 @keyframes draw{to{stroke-dashoffset:0}}@keyframes fadeIn{to{opacity:.16}}@keyframes starIn{to{transform:scale(1) rotate(0)}}
 @keyframes glow{0%,100%{opacity:.5;transform:scale(.92)}50%{opacity:1;transform:scale(1.06)}}
+.stat .si,.si.fl,.si.bk,.si.jr{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold);border:1px solid color-mix(in srgb,var(--gold) 34%,transparent);box-shadow:none}
+.stat b,.gval b{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",system-ui,sans-serif;font-variant-numeric:lining-nums tabular-nums}
+.es{display:flex;flex-direction:column;align-items:center;text-align:center;padding:28px 20px 24px;margin:14px 0;border:1px dashed var(--lineS);border-radius:var(--r);background:var(--paper)}
+.es svg{width:124px;height:124px;overflow:visible;color:var(--gold);animation:esfloat 4.5s ease-in-out infinite}
+.es-glow{fill:var(--gold);opacity:.13;transform-box:fill-box;transform-origin:center;animation:esglow 3.2s ease-in-out infinite}
+.es .ln{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.es .dr{stroke-dasharray:200;stroke-dashoffset:200;animation:esdraw 1.5s ease .1s forwards}
+.es .fl{fill:currentColor;stroke:none}
+.es .tw{transform-box:fill-box;transform-origin:center;animation:estw 2.4s ease-in-out infinite}
+.es .pen{animation:espen 2.6s ease-in-out infinite}
+.es-t{font:700 1.2rem ui-serif,"New York",Georgia,serif;margin:12px 0 4px;color:var(--ink)}
+.es-p{color:var(--mute);font-size:.92rem;max-width:300px;margin:0 0 16px;line-height:1.5}
+.sk{height:12px;border-radius:6px;background:rgba(255,255,255,.3);margin:12px 0;animation:eshimmer 1.4s ease-in-out infinite}.sk.w60{width:60%}.sk.w80{width:80%}
+@keyframes esfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes esdraw{to{stroke-dashoffset:0}}
+@keyframes estw{0%,100%{transform:scale(.7);opacity:.55}50%{transform:scale(1.15);opacity:1}}
+@keyframes esglow{0%,100%{opacity:.08;transform:scale(.92)}50%{opacity:.2;transform:scale(1.06)}}
+@keyframes espen{0%,100%{transform:translate(0,0)}50%{transform:translate(-7px,6px)}}
+@keyframes eshimmer{50%{opacity:.4}}
+@media(prefers-reduced-motion:reduce){.es svg,.es .tw,.es .pen,.es-glow,.sk{animation:none}.es .dr{animation:none;stroke-dashoffset:0}}
 @media print{
   header,nav,.noprint{display:none!important}
   body{padding-bottom:0}
@@ -479,7 +499,7 @@ function togetherStart(){leaveChannel();clearTimeout(trUI.timer);trUI.view=null;
   const list=h('div','');list.append(h('p','hint','Loading your rooms…'));box.append(list);
   (async()=>{try{await ensureAuth();const {data,error}=await sb.from('tr_members').select('room_id,tr_rooms(id,name,code)').eq('user_id',sbUser.id);if(error)throw error;
     const pend={};try{const {data:pq}=await sb.from('tr_blocked').select('room_id').eq('status','pending');(pq||[]).forEach(x=>{pend[x.room_id]=(pend[x.room_id]||0)+1})}catch{}
-    list.innerHTML='';if(!data.length){list.append(h('p','hint','No rooms yet. Create one or join with a code.'));return}
+    list.innerHTML='';if(!data.length){list.append(emptyState('people','No rooms yet','Create a room for you and your partner, or join one with a code.'));return}
     data.forEach(m=>{const r=m.tr_rooms;if(!r)return;const card=h('div','panel');card.style.cursor='pointer';card.append(h('strong','',r.name),h('div','meta','Code '+r.code+(pend[r.id]?' · 🔔 '+pend[r.id]+' join request'+(pend[r.id]>1?'s':''):'')));card.onclick=()=>trOpenRoom(r.id);list.append(card)});
   }catch(e){list.innerHTML='';trWarn(list,e)}})();}
 
@@ -809,13 +829,14 @@ function renderHome(){renderGreet();$('stStudies').textContent=S.get().length;$(
     const btn=h('button','btn alt','Open');btn.style.marginTop='8px';
     btn.onclick=()=>{if(act.type==='room'){openTogether();trOpenRoom(act.id)}else{document.querySelector('[data-t=study]').click();openStudy(act.id)}};
     p.style.cursor='pointer';p.onclick=btn.onclick;p.append(btn);box.append(p)}
-  if(!lr&&!act)box.innerHTML='';
+  if(!lr){const q=h('div','panel');q.append(h('div','meta','Continue reading'),h('strong','','Begin with Genesis'));const b=h('button','btn alt','Start');b.style.marginTop='10px';b.onclick=()=>goTab('read');q.style.cursor='pointer';q.onclick=b.onclick;q.append(b);box.prepend(q)}
+  if(!act){const q=h('div','panel hero hero-a');q.append(h('div','meta','Last study'),h('strong','','Nothing yet'));const b=h('button','btn alt','New study');b.style.marginTop='10px';b.onclick=()=>goTab('study');q.style.cursor='pointer';q.onclick=b.onclick;q.append(b);box.append(q)}
   renderSuggestion();renderGoals();renderReminder();}
 
 const Suggest={get:()=>{try{return JSON.parse(localStorage.getItem('weeklySuggestion'))}catch{return null}},set:v=>{try{localStorage.setItem('weeklySuggestion',JSON.stringify(v))}catch{}}};
 function renderSuggestion(sug){const box=$('suggestBox');const cached=sug||Suggest.get();
   const stale=!cached||(Date.now()-cached.generatedAt)>24*60*60*1000;
-  if(!cached){box.innerHTML='<p class="hint">Preparing today\'s journey…</p>';fetchSuggestion();return}
+  if(!cached){box.innerHTML='';const sk=h('div','panel hero hero-b');sk.append(h('div','sk w60'),h('div','sk'),h('div','sk w80'));box.append(sk);fetchSuggestion();return}
   if(stale&&navigator.onLine&&localStorage.getItem('pass')&&!window._sugTried){window._sugTried=1;fetchSuggestion()}
   box.innerHTML='';const p=h('div','panel sug hero hero-b');
   const refs=cached.passages||[],doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/864e5),ref=refs.length?refs[doy%refs.length]:null;
@@ -896,7 +917,7 @@ function renderVault(){const L=V.get().sort((a,b)=>b.date.localeCompare(a.date))
     tags.forEach(t=>{const c=h('span','chip'+(vaultFilter===t?' on':''),t);c.onclick=()=>{vaultFilter=t;renderVault()};tbox.append(c)})}
   const list=vaultFilter?L.filter(x=>x.tag===vaultFilter):L;
   const box=$('vaultList');box.innerHTML='';
-  if(!list.length){box.innerHTML='<p class="hint">No saved verses yet. Go to Read, tap a verse, then tap Save to Vault.</p>';return}
+  if(!list.length){box.innerHTML='';box.append(emptyState('bookmark','No saved verses yet','Tap a verse while reading, then choose Save to Vault. Your favourites will live here.','Open the Bible',()=>goTab('read')));return}
   list.forEach(x=>{const nodes=[h('p','',x.text)];
     if(x.note)nodes.push(h('p','meta','Note: '+x.note));
     const snap=h('button','btn alt','📸 Snapshot');snap.onclick=()=>{openSnapshot(x.ref,x.text)};
@@ -904,7 +925,7 @@ function renderVault(){const L=V.get().sort((a,b)=>b.date.localeCompare(a.date))
     const br=h('div','row');br.append(snap,del);nodes.push(br);box.append(fold(x.ref,x.tag+' · '+new Date(x.date).toLocaleDateString(),nodes))});}
 
 function render(){const L=store.get().sort((a,b)=>b.date.localeCompare(a.date));$('list').innerHTML='';
-  if(!L.length){$('list').innerHTML='<p class="hint">No entries yet. Read a passage and tap "Journal this passage".</p>';return}
+  if(!L.length){$('list').innerHTML='';$('list').append(emptyState('journal','Your journal is empty','Write what God is teaching you. Start from any passage with Journal this passage.','Start reading',()=>goTab('read')));return}
   L.forEach(e=>{const d=document.createElement('div');d.className='entry';
     const hh=document.createElement('h3');hh.textContent=e.title||'Untitled';
     const m=document.createElement('div');m.className='meta';m.textContent=(e.ref?e.ref+' · ':'')+new Date(e.date).toLocaleDateString();
@@ -933,6 +954,9 @@ function pagerRow(page,totalPages,onPrev,onNext){if(totalPages<=1)return null;co
   const info=h('span','meta','Page '+page+' of '+totalPages);info.style.alignSelf='center';
   const next=h('button','btn alt','Next →');next.disabled=page>=totalPages;next.onclick=onNext;
   row.append(prev,info,next);return row;}
+const ES_ART={'book': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><path class="dr" d="M60 86C49 79 35 77 24 81V47c11-4 25-2 36 5 11-7 25-9 36-5v34c-11-4-25-2-36 5z"/><path class="dr" d="M60 52v34"/><path class="dr" style="animation-delay:.5s" d="M32 60h20M32 68h14M68 60h20M68 68h14"/></g><path class="fl tw" d="M60 12c.8 6 4.200 9.400 10 10.500-5.800 1-9.200 4.500-10 10.500-.8-6-4.200-9.500-10-10.500 5.800-1.100 9.200-4.500 10-10.500z"/><circle class="fl tw" style="animation-delay:.8s" cx="92" cy="30" r="2.4"/><circle class="fl tw" style="animation-delay:1.4s" cx="26" cy="34" r="2"/></svg>', 'quiz': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><rect class="dr" x="30" y="26" width="60" height="68" rx="14"/><path class="dr" style="animation-delay:.4s" d="M50 54a10 10 0 1 1 14 9c-3 2-4 4-4 8"/></g><circle class="fl" cx="60" cy="82" r="2.8"/><circle class="fl tw" style="animation-delay:.6s" cx="96" cy="28" r="2.6"/><circle class="fl tw" style="animation-delay:1.2s" cx="24" cy="40" r="2"/></svg>', 'bookmark': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><path class="dr" d="M42 24h36a4 4 0 0 1 4 4v68L60 82 38 96V28a4 4 0 0 1 4-4z" transform="translate(0 -2)"/></g><path class="fl tw" d="M90 22c.6 4.500 3.200 7 7.500 7.800-4.300.8-6.900 3.400-7.500 7.800-.6-4.400-3.200-7-7.500-7.800 4.300-.8 6.900-3.300 7.500-7.800z"/><circle class="fl tw" style="animation-delay:1s" cx="26" cy="46" r="2.2"/></svg>', 'journal': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><path class="dr" d="M36 24h42a6 6 0 0 1 6 6v60a6 6 0 0 1-6 6H36a6 6 0 0 1-6-6V30a6 6 0 0 1 6-6z"/><path class="dr" style="animation-delay:.5s" d="M40 42h34M40 54h34M40 66h20"/></g><g class="pen ln"><path d="M82 72l12-12 6 6-12 12-8 2z" fill="currentColor" fill-opacity=".18"/></g><circle class="fl tw" style="animation-delay:.9s" cx="26" cy="22" r="2.2"/></svg>', 'people': '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="es-glow" cx="60" cy="62" r="46"/><g class="ln"><circle class="dr" cx="44" cy="56" r="11"/><path class="dr" d="M24 96c0-12 9-20 20-20s20 8 20 20"/><circle class="dr" style="animation-delay:.3s" cx="78" cy="56" r="11"/><path class="dr" style="animation-delay:.3s" d="M58 96c0-12 9-20 20-20s20 8 20 20"/></g><path class="fl tw" d="M61 34c-6-6-14 0-8 7l8 8 8-8c6-7-2-13-8-7z" transform="translate(0 -8)"/></svg>'};
+function emptyState(kind,title,text,label,fn){const d=document.createElement('div');d.className='es';d.innerHTML=ES_ART[kind]||ES_ART.book;d.append(h('div','es-t',title),h('p','es-p',text));if(label){const b=h('button','btn',label);b.onclick=fn;d.append(b)}return d}
+const goTab=t=>document.querySelector('[data-t='+t+']').click();
 function fold(title,sub,nodes){const d=document.createElement('details');d.className='entry fold';const sm=document.createElement('summary');
   sm.append(h('strong','',title));if(sub)sm.append(h('div','meta',sub));d.append(sm);const b=h('div','fold-body');b.append(...nodes);d.append(b);return d}
 let showArchived=false;const pageState={stPage:1,seriesPage:1,archStPage:1,archSeriesPage:1};
@@ -977,9 +1001,9 @@ function stList(){$('stView').hidden=true;$('stForm').hidden=false;const L=S.get
     const pr=pagerRow(page,totalPages,()=>{pageState[pageKey]--;stList()},()=>{pageState[pageKey]++;stList()});if(pr)box.append(pr);}
 
   if(showArchived){renderSeries(archSeriesList,'archSeriesPage');renderSingles(archSingles,'archStPage');
-    if(!archSeriesList.length&&!archSingles.length)box.append(h('p','hint','Nothing archived yet.'));}
+    if(!archSeriesList.length&&!archSingles.length)box.append(emptyState('book','Nothing archived','Studies you archive will rest here until you need them.'));}
   else{renderSeries(activeSeriesList,'seriesPage');renderSingles(activeSingles,'stPage');
-    if(!activeSeriesList.length&&!activeSingles.length)box.append(h('p','hint','No studies yet — create one above.'));}
+    if(!activeSeriesList.length&&!activeSingles.length)box.append(emptyState('book','No studies yet','Enter a topic above and we\'ll build your first Bible study.','Choose a topic',()=>{$('topic').focus();scrollTo({top:0,behavior:'smooth'})}));}
   toggle.style.marginTop='24px';box.append(toggle);}
 
 const TYPE_LABEL={personal:'Personal Bible Study',youth:'Youth Bible Study',sunday_school:'Sunday School',prayer_meeting:'Prayer Meeting',sermon_outline:'Sermon Outline',family:'Family Bible Study',discipleship:'Discipleship Study'};
@@ -1156,7 +1180,7 @@ function quizList(){$('quizView').hidden=true;$('quizForm').hidden=false;const b
   const bb=h('button','btn alt'+(showArchivedQuiz?' on':''),'Archived ('+arch.length+')');bb.onclick=()=>{showArchivedQuiz=true;quizList()};
   toggle.append(ab,bb);box.append(toggle);
   const list=(showArchivedQuiz?arch:active).sort((a,b)=>b.date.localeCompare(a.date));
-  if(!list.length){box.append(h('p','hint',showArchivedQuiz?'Nothing archived yet.':'No quizzes yet — create one above.'));return}
+  if(!list.length){box.append(emptyState('quiz',showArchivedQuiz?'Nothing archived':'No quizzes yet',showArchivedQuiz?'Archived quizzes will appear here.':'Pick a topic above and test what you know.'));return}
   const pageKey=showArchivedQuiz?'archQuizPage':'quizPage';
   const {slice,page,totalPages}=paginateArr(list,quizPageState[pageKey]);quizPageState[pageKey]=page;
   slice.forEach(x=>{const d=h('div','entry');const sc=x.submitted?' · scored '+x.score+'/'+x.quiz.questions.length:'';
