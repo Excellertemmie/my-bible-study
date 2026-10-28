@@ -287,16 +287,11 @@ select option{background:#241d15;color:#f5efe4}
 <section id="home" role="tabpanel" aria-labelledby="tab-home">
   <div id="greet"></div>
   <div id="reminderBanner"></div>
-  <div class="stat">
-    <div><span class="si fl">🔥</span><b id="stStudies">0</b><em>Studies</em></div>
-    <div><span class="si bk">🔖</span><b id="stVault">0</b><em>Saved verses</em></div>
-    <div><span class="si jr">📝</span><b id="stJournal">0</b><em>Journal entries</em></div>
-  </div>
-  <div id="continueBox" class="duo"></div>
+  <div class="sechead" style="margin-top:0"><h3>Your progress</h3><div id="goalTools"></div></div>
+  <div id="goalsBox"></div>
+  <div id="continueBox" class="duo" style="margin-top:20px"></div>
   <h3>Today's journey</h3>
   <div id="suggestBox"></div>
-  <div class="sechead"><h3>Weekly goals</h3><div id="goalTools"></div></div>
-  <div id="goalsBox"></div>
   <div id="reminderBox" hidden></div>
   <p class="hint" style="margin-top:20px"><a href="#" id="backupLink" style="color:var(--mute)">⚙️ Backup &amp; restore your data</a></p>
 </section>
@@ -440,8 +435,8 @@ async function ensureAuth(){if(!sb){if(typeof window.supabase==='undefined')thro
     sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);}
   const {data:{session}}=await sb.auth.getSession();
   if(session){sbUser=session.user;return sbUser}
-  const {data,error}=await sb.auth.signInAnonymously();
-  if(error)throw new Error('Could not connect: '+error.message);
+  let r;try{r=await trRetry(()=>sb.auth.signInAnonymously())}catch(e){throw new Error(trNet(e)?trNetMsg+' If it keeps happening, the server may be paused.':'Could not connect: '+(e.message||e))}
+  const {data,error}=r;if(error)throw new Error('Could not connect: '+error.message);
   sbUser=data.user;return sbUser;}
 function getStudyName(){return (localStorage.getItem('trUsername')||'').trim()}
 function trHasName(){return getStudyName().length>=2}
@@ -839,7 +834,7 @@ function renderGreet(){const g=$('greet');if(!g)return;const d=new Date(),hr=d.g
   g.innerHTML='';g.append(h('div','greet-sub',d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})),h('div','greet-h',word+(nm?', '+nm:'')));
   const st=h('div','wk'),a=new Date(d);a.setDate(d.getDate()-d.getDay());
   for(let i=0;i<7;i++){const x=new Date(a);x.setDate(a.getDate()+i);const c=h('div','wd'+(x.toDateString()===d.toDateString()?' on':''));c.append(h('span','',x.toLocaleDateString(undefined,{weekday:'narrow'})),h('b','',x.getDate()));st.append(c)}g.append(st)}
-function renderHome(){renderGreet();$('stStudies').textContent=S.get().length;$('stVault').textContent=V.get().length;$('stJournal').textContent=store.get().length;
+function renderHome(){renderGreet();
   const box=$('continueBox');box.innerHTML='';
   const lr=lastRead.get();
   if(lr){const p=h('div','panel');p.append(h('div','meta','Continue reading'),h('strong','',lr.book+' '+lr.chap));
@@ -878,22 +873,24 @@ async function fetchSuggestion(){let pass=localStorage.getItem('pass')||prompt('
     localStorage.setItem('pass',pass);d.generatedAt=Date.now();Suggest.set(d);renderSuggestion(d);
   }catch(e){$('suggestBox').innerHTML='';$('suggestBox').append(h('p','meta',navigator.onLine?e.message:'You are offline. Connect to the internet to load a suggestion.'))}}
 
-const Goals={get:()=>{try{return Object.assign({chaptersTarget:5,sessionsTarget:2},JSON.parse(localStorage.getItem('goals')||'{}'))}catch{return{chaptersTarget:5,sessionsTarget:2}}},set:v=>{try{localStorage.setItem('goals',JSON.stringify(v))}catch{}}};
+const Goals={get:()=>{try{return Object.assign({chaptersTarget:5,sessionsTarget:2,journalTarget:3},JSON.parse(localStorage.getItem('goals')||'{}'))}catch{return{chaptersTarget:5,sessionsTarget:2,journalTarget:3}}},set:v=>{try{localStorage.setItem('goals',JSON.stringify(v))}catch{}}};
 function weekChapterCount(){const cutoff=Date.now()-7*24*60*60*1000;const seen=new Set();
   RL.get().forEach(e=>{if(new Date(e.date).getTime()>=cutoff)seen.add(e.book+':'+e.chap)});return seen.size;}
 function weekSessionCount(){const cutoff=Date.now()-7*24*60*60*1000;
   return S.get().filter(x=>new Date(x.date).getTime()>=cutoff).length+Q.get().filter(x=>new Date(x.date).getTime()>=cutoff).length;}
-function renderGoals(){const box=$('goalsBox');box.innerHTML='';const g=Goals.get(),ch=weekChapterCount(),se=weekSessionCount();
+function weekJournalCount(){const cutoff=Date.now()-7*24*60*60*1000;return store.get().filter(x=>new Date(x.date).getTime()>=cutoff).length}
+function renderGoals(){const box=$('goalsBox');box.innerHTML='';const g=Goals.get(),ch=weekChapterCount(),se=weekSessionCount(),jo=weekJournalCount();
   const mk=(label,val,target)=>{const done=val>=target,w=h('div','goal'+(done?' done':'')),top=h('div','gtop'),v=h('span','gval');
     v.innerHTML='<b>'+val+'</b> / '+target;top.append(h('span','glabel',label),v);
     const bar=h('div','gbar'),i=document.createElement('i');i.style.width=Math.min(100,target?val/target*100:0)+'%';bar.append(i);w.append(top,bar);
     if(done)w.append(h('div','gdone','Goal reached'));return w};
-  box.append(mk('Study sessions this week',se,g.sessionsTarget),mk('Chapters read this week',ch,g.chaptersTarget));
+  box.append(mk('Study sessions this week',se,g.sessionsTarget),mk('Chapters read this week',ch,g.chaptersTarget),mk('Journal entries this week',jo,g.journalTarget));
   const t=$('goalTools');t.innerHTML='';
   const ib=(d,label,fn)=>{const b=h('button','gbtn');b.setAttribute('aria-label',label);b.title=label;b.innerHTML='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>';b.onclick=fn;return b};
   t.append(ib('M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 16V3M1 14h6M9 8h6M17 16h6','Edit goals',()=>{const c=prompt('Weekly chapters goal:',g.chaptersTarget);if(c===null)return;
     const s2=prompt('Weekly study sessions goal:',g.sessionsTarget);if(s2===null)return;
-    Goals.set({chaptersTarget:Math.max(1,parseInt(c)||g.chaptersTarget),sessionsTarget:Math.max(1,parseInt(s2)||g.sessionsTarget)});renderGoals()}),
+    const j2=prompt('Weekly journal entries goal:',g.journalTarget);if(j2===null)return;
+    Goals.set({chaptersTarget:Math.max(1,parseInt(c)||g.chaptersTarget),sessionsTarget:Math.max(1,parseInt(s2)||g.sessionsTarget),journalTarget:Math.max(1,parseInt(j2)||g.journalTarget)});renderGoals()}),
     ib('M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4','Review this week',weeklyReview))}
 async function weeklyReview(){const cutoff=Date.now()-7*24*60*60*1000;
   const chaps=[...new Set(RL.get().filter(e=>new Date(e.date).getTime()>=cutoff).map(e=>e.book+' '+e.chap))];
